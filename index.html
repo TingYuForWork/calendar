@@ -676,13 +676,12 @@
     };
 
     // ==========================================
-    // 跨平台標準 CORS 雲端即時同步架構（完美相容 Mac Safari/Chrome 與 Windows）
+    // 全球免認證、開放 CORS 的高穩定雙向即時中繼架構
     // ==========================================
     let syncChannel = null;
     let lastKnownVersion = 0;
     let isSyncing = false;
     let syncTimer = null;
-    let cloudObjectId = null; // 記錄雲端同步物件 ID
 
     function updateSyncBadge(status, text) {
       const dot = document.getElementById('syncDot');
@@ -710,69 +709,62 @@
       }
     }
 
-    // 取得或初始化雲端同步物件 ID
-    function getStoredCloudId() {
-      if (!cloudObjectId) {
-        cloudObjectId = localStorage.getItem(`worksync_cloud_id_${currentRoom}`) || null;
-      }
-      return cloudObjectId;
+    // 取得房間專屬的安全存取鍵（乾淨字元）
+    function getRoomKey() {
+      return (currentRoom || 'school-work-2026').replace(/[^a-zA-Z0-9_-]/g, '_');
     }
 
-    function setStoredCloudId(id) {
-      cloudObjectId = id;
-      if (id) {
-        localStorage.setItem(`worksync_cloud_id_${currentRoom}`, id);
-      }
-    }
-
+    // 雲端讀取函式：使用無跨域限制的標準 JSON 端點
     async function fetchFromCloud(isManual = false) {
       if (isSyncing) return;
+      const key = getRoomKey();
+      
       try {
-        const storedId = getStoredCloudId();
-        
-        // 若已有雲端 ID，直接透過標準 GET 讀取
-        if (storedId) {
-          const res = await fetch(`https://api.restful-api.dev/objects/${storedId}?_t=${Date.now()}`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-          });
-
-          if (res.ok) {
-            const result = await res.json();
-            if (result && result.data && result.data.version && result.data.version > lastKnownVersion) {
-              applyIncomingData(result.data);
+        // 第一中繼端點：使用免驗證的 JSON 儲存端點
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://kvdb.io/4y9n1k6wLwGj8s5q7x/${key}`)}&timestamp=${Date.now()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.contents) {
+            try {
+              const remoteData = JSON.parse(json.contents);
+              if (remoteData && remoteData.version && remoteData.version > lastKnownVersion) {
+                applyIncomingData(remoteData);
+              }
+              updateSyncBadge('success');
+              return;
+            } catch (parseErr) {
+              // 房間可能尚未有內容
             }
-            updateSyncBadge('success');
-            return;
-          } else if (res.status === 404) {
-            // 雲端物件若已被清理，重新推播建立
-            setStoredCloudId(null);
           }
         }
 
-        // 備援方案：若無 ID 或查詢不到，嘗試透過公用通道同步
-        const fallbackUrl = `https://api.restful-api.dev/objects?_t=${Date.now()}`;
-        const checkRes = await fetch(fallbackUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        if (checkRes.ok) {
+        // 備援讀取端點
+        const directRes = await fetch(`https://kvdb.io/4y9n1k6wLwGj8s5q7x/${key}?_nocache=${Date.now()}`);
+        if (directRes.ok) {
+          const remoteData = await directRes.json();
+          if (remoteData && remoteData.version && remoteData.version > lastKnownVersion) {
+            applyIncomingData(remoteData);
+          }
           updateSyncBadge('success');
-          // 若本機有資料且尚未建立雲端對應物件，主動推播建立
+          return;
+        } else if (directRes.status === 404) {
+          // 雲端尚無此房間，若本機有資料則主動推送
+          updateSyncBadge('success');
           if (isManual || eventsList.length > 0) {
             pushToCloud();
           }
-        } else {
-          updateSyncBadge('offline', '離線暫存中');
+          return;
         }
+        
+        updateSyncBadge('success');
       } catch (err) {
-        // Mac Safari / Chrome 若遇網路波動或隱私限制，維持本機資料正常操作
-        console.warn('雲端輪詢提示:', err);
+        console.warn('雲端輪詢提示 (將在下次自動重試):', err);
+        // 本機保留正常運作，不鎖死介面
         updateSyncBadge('offline', '離線暫存中');
       }
     }
 
+    // 雲端推送函式：使用純文字/JSON POST，不受瀏覽器安全預檢阻擋
     async function pushToCloud() {
       isSyncing = true;
       updateSyncBadge('syncing', '正在同步至雲端...');
@@ -786,62 +778,31 @@
         eventsList
       };
 
-      // 1. 本機資料優先保存
+      // 1. 本地即時保存
       saveLocalRoomData();
 
-      // 2. 同台電腦其他分頁廣播
+      // 2. 本機同瀏覽器分頁廣播
       if (syncChannel) {
         syncChannel.postMessage({ type: 'SYNC_ALL', ...payloadData });
       }
 
-      // 3. 推送至跨平台免驗證雲端中繼
+      const key = getRoomKey();
+      const bodyText = JSON.stringify(payloadData);
+
       try {
-        const storedId = getStoredCloudId();
-        if (storedId) {
-          // 已存在則執行 PUT 更新
-          const updateRes = await fetch(`https://api.restful-api.dev/objects/${storedId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              name: `work_cal_room_${currentRoom}`,
-              data: payloadData
-            })
-          });
-
-          if (updateRes.ok) {
-            updateSyncBadge('success');
-            isSyncing = false;
-            return;
-          }
-        }
-
-        // 若無 ID 或 PUT 失敗，執行 POST 建立全新節點
-        const createRes = await fetch(`https://api.restful-api.dev/objects`, {
+        // 發送 POST 至中繼端點
+        const res = await fetch(`https://kvdb.io/4y9n1k6wLwGj8s5q7x/${key}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            name: `work_cal_room_${currentRoom}`,
-            data: payloadData
-          })
+          body: bodyText
         });
 
-        if (createRes.ok) {
-          const created = await createRes.json();
-          if (created && created.id) {
-            setStoredCloudId(created.id);
-          }
+        if (res.ok) {
           updateSyncBadge('success');
         } else {
           updateSyncBadge('offline', '暫存於本機');
         }
       } catch (err) {
-        console.warn('雲端推播提示:', err);
+        console.warn('雲端推送提示:', err);
         updateSyncBadge('offline', '暫存於本機');
       } finally {
         isSyncing = false;
@@ -863,11 +824,11 @@
       // 2. 初始抓取雲端
       fetchFromCloud();
 
-      // 3. 定時自動雙向同步（每 5 秒背景檢查一次）
+      // 3. 定時自動雙向同步（每 4 秒背景自動確認）
       if (syncTimer) clearInterval(syncTimer);
       syncTimer = setInterval(() => {
         fetchFromCloud();
-      }, 5000);
+      }, 4000);
     }
 
     function applyIncomingData(data) {
