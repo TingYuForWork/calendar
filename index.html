@@ -650,6 +650,59 @@
     </div>
   </div>
 
+  <!-- 5.6 初次進入 / 歡迎加入房間引導 Modal（訪客第一步入口） -->
+  <div id="welcomeRoomModal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+      <div class="p-6 bg-gradient-to-br from-indigo-600 to-slate-800 text-white text-center relative">
+        <div class="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm text-3xl">
+          📅
+        </div>
+        <h2 class="text-xl font-bold tracking-tight">歡迎使用工作行事曆</h2>
+        <p class="text-xs text-indigo-100 mt-1.5 leading-relaxed">
+          請先選擇要<strong>加入現有共編房間</strong>，或是<strong>建立一個全新的獨立房間</strong>開始使用。
+        </p>
+      </div>
+
+      <div class="p-6 space-y-5 text-xs">
+        <!-- 頁籤切換：加入現有 vs 建立全新 -->
+        <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+          <button type="button" id="tabJoinRoom" class="py-2 text-center font-semibold rounded-lg bg-white text-indigo-600 shadow-xs transition">
+            加入已知房間
+          </button>
+          <button type="button" id="tabCreateRoom" class="py-2 text-center font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition">
+            建立全新房間
+          </button>
+        </div>
+
+        <!-- 區塊 A: 加入已知房間 -->
+        <form id="formJoinRoom" class="space-y-3.5">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">請輸入團隊或協作者提供的房間號碼</label>
+            <input type="text" id="inputJoinRoom" required placeholder="例如：502、五年三班、英文科..." 
+                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">兩台設備輸入完全相同的號碼即可即時雙向連動。</p>
+          </div>
+          <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+            <i class="ph ph-sign-in text-sm"></i> 進入該房間行事曆
+          </button>
+        </form>
+
+        <!-- 區塊 B: 建立全新房間 -->
+        <form id="formCreateNewRoom" class="space-y-3.5 hidden">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">為您的新日曆設定房間名稱 / 代碼</label>
+            <input type="text" id="inputNewRoom" required placeholder="例如：我的個人行程、辦公室A室..." 
+                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">新房間擁有乾淨的起點，完全獨立且不包含其他人已編輯的行程。</p>
+          </div>
+          <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+            <i class="ph ph-plus-circle text-sm"></i> 立即建立新房間
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- 6. 桌面安裝/設定提示 Modal -->
   <div id="guideModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden p-6 space-y-4">
@@ -716,8 +769,8 @@
 
     // 全域共編狀態
     let currentDate = new Date();
-    let currentRoom = "school-work-2026";
-    let roomHistory = ["school-work-2026"];
+    let currentRoom = "";
+    let roomHistory = [];
     let eventsList = [];
     let customCategories = [...DEFAULT_CATEGORIES];
 
@@ -756,20 +809,47 @@
     let syncInterval = null;
     let lastLocalTimestamp = 0;
 
-    // 將任何語言的房間代碼安全編碼為全球唯一頻道名稱 (支援中文、英文、數字)
+    // 將任何語言的房間代碼安全編碼為全球唯一頻道名稱 (支援中文、英文、數字，保證跨裝置一致)
     function getCleanChannelName(roomStr) {
       const raw = (roomStr || 'school-work-2026').trim();
-      let hash = 0;
+      let hash = 5381;
       for (let i = 0; i < raw.length; i++) {
-        hash = ((hash << 5) - hash) + raw.charCodeAt(i);
-        hash |= 0;
+        hash = ((hash << 5) + hash) + raw.charCodeAt(i);
+        hash = hash & hash; // Convert to 32bit integer
       }
-      const safeSuffix = Math.abs(hash).toString(36);
-      const cleanPrefix = raw.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10).toLowerCase() || 'cal';
-      return `workcal_${cleanPrefix}_${safeSuffix}`;
+      const safeHash = Math.abs(hash).toString(36);
+      return `cal_v2_${safeHash}`;
+    }
+
+    // 中文安全編解碼器 (防止推播中文 JSON 截斷或伺服器字元編碼報錯)
+    function encodePayload(obj) {
+      try {
+        const jsonStr = JSON.stringify(obj);
+        return btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+          return String.fromCharCode('0x' + p1);
+        }));
+      } catch(e) {
+        return JSON.stringify(obj);
+      }
+    }
+
+    function decodePayload(str) {
+      try {
+        const decoded = decodeURIComponent(atob(str).split('').map((c) => {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(decoded);
+      } catch(e) {
+        try {
+          return JSON.parse(str);
+        } catch(err) {
+          return null;
+        }
+      }
     }
 
     function initCloudSync() {
+      if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
       updateSyncBadge('syncing', '正在建立雙向即時連線...');
 
@@ -783,13 +863,12 @@
         syncInterval = null;
       }
 
-      // 建立全球極速 SSE (Server-Sent Events) 即時長連線
+      // 建立全球極速 SSE 即時長連線 (Mac Safari / Windows Chrome 通用)
       try {
-        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse`);
+        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=10m`);
 
         eventSource.onopen = () => {
           updateSyncBadge('success', '雙向即時連線正常');
-          // 連線成功時，主動發送握手請求或同步最新資料
           pullLatestFromCloud();
         };
 
@@ -797,7 +876,7 @@
           try {
             const parsed = JSON.parse(event.data);
             if (parsed && parsed.message) {
-              const payload = JSON.parse(parsed.message);
+              const payload = decodePayload(parsed.message);
               if (payload && payload.room === currentRoom && payload.data) {
                 if (payload.timestamp > lastLocalTimestamp) {
                   lastLocalTimestamp = payload.timestamp;
@@ -806,25 +885,28 @@
                 }
               }
             }
-          } catch (e) {}
+          } catch (e) {
+            console.warn(e);
+          }
         };
 
         eventSource.onerror = () => {
-          // 若遇網路波動，自動降級為標準靜默輪詢模式，保持綠燈正常
+          // 若遇暫態波動，自動轉入定時靜默輪詢模式維持正常更新
           updateSyncBadge('success', '雲端連線保護中 (已就緒)');
         };
       } catch (err) {
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // 備援定時檢查（每 5 秒靜默拉取最新，確保任何一台剛開機都能抓到最新行程）
+      // 雙向定時備援輪詢（每 4 秒靜默索取最新，確保任何一台開機即抓取對齊）
       syncInterval = setInterval(() => {
         pullLatestFromCloud();
-      }, 5000);
+      }, 4000);
     }
 
-    // 發送即時更新推播 (Mac ⇋ 學校 Windows 毫秒級互傳)
+    // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 毫秒級互傳)
     async function pushToCloud() {
+      if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
       const nowTs = Date.now();
       lastLocalTimestamp = nowTs;
@@ -841,12 +923,14 @@
         }
       };
 
+      const encodedBody = encodePayload(payload);
+
       try {
         await fetch(`https://ntfy.sh/${channel}`, {
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: encodedBody,
           headers: {
-            'Title': 'WorkCalendarSync',
+            'Title': 'CalSync',
             'Priority': 'urgent'
           }
         });
@@ -856,8 +940,9 @@
       }
     }
 
-    // 索取最新快取
+    // 索取最新雲端行程
     async function pullLatestFromCloud() {
+      if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
       try {
         const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m`, { cache: 'no-store' });
@@ -869,12 +954,12 @@
               try {
                 const item = JSON.parse(lines[i]);
                 if (item && item.message) {
-                  const payload = JSON.parse(item.message);
+                  const payload = decodePayload(item.message);
                   if (payload && payload.room === currentRoom && payload.data) {
                     if (payload.timestamp > lastLocalTimestamp) {
                       lastLocalTimestamp = payload.timestamp;
                       applyIncomingData(payload.data);
-                      updateSyncBadge('success', '雲端雙向連線正常');
+                      updateSyncBadge('success', '雙向即時連線正常');
                       break;
                     }
                   }
@@ -1643,13 +1728,6 @@
     // 頁面初始化與事件監聽
     // ==========================================
     window.addEventListener('DOMContentLoaded', () => {
-      // 讀取最後使用的房間代碼與歷史清單
-      loadRoomHistory();
-      const savedRoom = localStorage.getItem('worksync_last_room');
-      if (savedRoom) currentRoom = savedRoom;
-      document.getElementById('currentRoomText').textContent = currentRoom;
-      document.getElementById('currentRoomDisplay').textContent = currentRoom;
-
       // 讀取外觀設定
       try {
         const savedBg = localStorage.getItem('worksync_bg_config');
@@ -1661,16 +1739,88 @@
         if (savedFont) fontConfig = { ...fontConfig, ...JSON.parse(savedFont) };
       } catch(e) {}
 
-      // 載入本地既有快取 (若無則自動產生當日示範行程)
-      loadLocalRoomData(false);
-      applyTitleStyles();
       applyBackgroundStyles();
       applyFontStyles();
-      updateCategoryDropdowns();
-      renderCalendar();
 
-      // 啟動超極速雙向即時雲端同步通道 (0.3秒快速握手)
-      initCloudSync();
+      // 檢查此電腦/瀏覽器是否曾設定過房間
+      loadRoomHistory();
+      const savedRoom = localStorage.getItem('worksync_last_room');
+
+      if (savedRoom && savedRoom.trim()) {
+        // 曾使用過該房間：直接進入該房間
+        currentRoom = savedRoom.trim();
+        document.getElementById('currentRoomText').textContent = currentRoom;
+        document.getElementById('currentRoomDisplay').textContent = currentRoom;
+
+        loadLocalRoomData(false);
+        applyTitleStyles();
+        updateCategoryDropdowns();
+        renderCalendar();
+        initCloudSync();
+      } else {
+        // 全新使用者 / 其他人首次取得網址：不載入任何預設房間，直接強制跳出起始導引選擇 Modal
+        document.getElementById('currentRoomText').textContent = "尚未選定房間";
+        document.getElementById('currentRoomDisplay').textContent = "選擇房間";
+        renderCalendar();
+        showWelcomeRoomModal();
+      }
+
+      // 歡迎引導 Modal 邏輯
+      function showWelcomeRoomModal() {
+        const modal = document.getElementById('welcomeRoomModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+
+        const tabJoin = document.getElementById('tabJoinRoom');
+        const tabCreate = document.getElementById('tabCreateRoom');
+        const formJoin = document.getElementById('formJoinRoom');
+        const formCreate = document.getElementById('formCreateNewRoom');
+        const inputJoin = document.getElementById('inputJoinRoom');
+        const inputNew = document.getElementById('inputNewRoom');
+
+        tabJoin.addEventListener('click', () => {
+          tabJoin.className = "py-2 text-center font-semibold rounded-lg bg-white text-indigo-600 shadow-xs transition";
+          tabCreate.className = "py-2 text-center font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition";
+          formJoin.classList.remove('hidden');
+          formCreate.classList.add('hidden');
+          setTimeout(() => inputJoin.focus(), 50);
+        });
+
+        tabCreate.addEventListener('click', () => {
+          tabCreate.className = "py-2 text-center font-semibold rounded-lg bg-white text-emerald-600 shadow-xs transition";
+          tabJoin.className = "py-2 text-center font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition";
+          formCreate.classList.remove('hidden');
+          formJoin.classList.add('hidden');
+          setTimeout(() => inputNew.focus(), 50);
+        });
+
+        formJoin.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const target = inputJoin.value.trim();
+          if (target) {
+            modal.classList.add('hidden');
+            switchRoom(target, false);
+          }
+        });
+
+        formCreate.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const target = inputNew.value.trim();
+          if (target) {
+            modal.classList.add('hidden');
+            switchRoom(target, true);
+          }
+        });
+
+        setTimeout(() => inputJoin.focus(), 50);
+      }
+
+      // 當視窗從背景切回前台（例如打開休眠的 Mac 或筆電）時，自動重新對齊連線
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && currentRoom) {
+          pullLatestFromCloud();
+        }
+      });
 
       // 房間下拉選單控制
       const btnRoomToggle = document.getElementById('btnRoomDropdownToggle');
