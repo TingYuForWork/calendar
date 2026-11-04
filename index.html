@@ -472,6 +472,28 @@
         </button>
       </div>
 
+      <!-- 新增標籤輸入區 -->
+      <div class="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+        <input type="color" id="newCatColor" value="#3b82f6" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 bg-white p-0.5 shrink-0">
+        <input type="text" id="newCatName" placeholder="新增標籤名稱..." class="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <button type="button" id="btnAddCategory" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shrink-0 flex items-center gap-1 shadow-2xs">
+          <i class="ph ph-plus"></i> 新增
+        </button>
+      </div>
+
+      <!-- 標籤清單容器 -->
+      <div class="max-h-56 overflow-y-auto space-y-1.5 pr-1" id="categoryListContainer">
+        <!-- 動態渲染標籤清單 -->
+      </div>
+
+      <div class="pt-2 text-right border-t border-slate-100">
+        <button type="button" id="btnDoneCategory" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium">
+          完成
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 3.5 成員（學生）名單管理 Modal -->
   <div id="memberModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden p-6 space-y-4 max-h-[90vh] flex flex-col">
@@ -2450,28 +2472,42 @@
       });
 
       // 標籤管理 Modal
-      document.getElementById('btnManageCategories').addEventListener('click', openCategoryModal);
-      document.getElementById('btnQuickOpenCatModal').addEventListener('click', openCategoryModal);
-      document.getElementById('btnCloseCatModal').addEventListener('click', closeCategoryModal);
-      document.getElementById('btnDoneCategory').addEventListener('click', closeCategoryModal);
-      document.getElementById('btnAddCategory').addEventListener('click', handleAddCategory);
-      document.getElementById('newCatName').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleAddCategory();
-        }
-      });
+      const btnManageCat = document.getElementById('btnManageCategories');
+      const btnQuickOpenCat = document.getElementById('btnQuickOpenCatModal');
+      const btnCloseCat = document.getElementById('btnCloseCatModal');
+      const btnDoneCat = document.getElementById('btnDoneCategory');
+      const btnAddCat = document.getElementById('btnAddCategory');
+      const newCatInput = document.getElementById('newCatName');
+
+      if (btnManageCat) btnManageCat.addEventListener('click', openCategoryModal);
+      if (btnQuickOpenCat) btnQuickOpenCat.addEventListener('click', openCategoryModal);
+      if (btnCloseCat) btnCloseCat.addEventListener('click', closeCategoryModal);
+      if (btnDoneCat) btnDoneCat.addEventListener('click', closeCategoryModal);
+      if (btnAddCat) btnAddCat.addEventListener('click', handleAddCategory);
+      if (newCatInput) {
+        newCatInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddCategory();
+          }
+        });
+      }
 
       // 桌面指引 Modal
-      document.getElementById('btnInstallGuide').addEventListener('click', () => {
-        document.getElementById('guideModal').classList.remove('hidden');
-      });
-      document.getElementById('btnCloseGuideModal').addEventListener('click', () => {
-        document.getElementById('guideModal').classList.add('hidden');
-      });
-      document.getElementById('btnGotItGuide').addEventListener('click', () => {
-        document.getElementById('guideModal').classList.add('hidden');
-      });
+      const btnInstallGuide = document.getElementById('btnInstallGuide');
+      const btnCloseGuide = document.getElementById('btnCloseGuideModal');
+      const btnGotItGuide = document.getElementById('btnGotItGuide');
+      const guideModal = document.getElementById('guideModal');
+
+      if (btnInstallGuide && guideModal) {
+        btnInstallGuide.addEventListener('click', () => guideModal.classList.remove('hidden'));
+      }
+      if (btnCloseGuide && guideModal) {
+        btnCloseGuide.addEventListener('click', () => guideModal.classList.add('hidden'));
+      }
+      if (btnGotItGuide && guideModal) {
+        btnGotItGuide.addEventListener('click', () => guideModal.classList.add('hidden'));
+      }
 
       // 標題與圖示 Modal
       document.getElementById('btnOpenTitleModal').addEventListener('click', openTitleModal);
