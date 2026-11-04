@@ -406,19 +406,29 @@
             </div>
           </div>
 
-          <!-- 負責成員 / 學生下拉選擇 -->
-          <div class="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/80">
-            <div class="flex items-center justify-between mb-1">
-              <label for="eventMemberSelect" class="block text-xs font-semibold text-indigo-900 flex items-center gap-1">
-                <i class="ph ph-user text-indigo-600"></i> 負責成員 / 學生 (座號與頭像)
+          <!-- 負責成員 / 學生多選區塊 -->
+          <div class="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/80 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-semibold text-indigo-900 flex items-center gap-1">
+                <i class="ph ph-users text-indigo-600"></i> 指派成員 / 學生（可複選或全員）
               </label>
               <button type="button" id="btnQuickOpenMemberModal" class="text-[11px] text-indigo-600 hover:underline flex items-center gap-0.5">
-                <i class="ph ph-gear"></i> 管理名單
+                <i class="ph ph-plus-circle"></i> 編輯/新增名單
               </button>
             </div>
-            <select id="eventMemberSelect" class="w-full px-3 py-2 text-xs bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition text-slate-700">
-              <option value="">無特定指定 (全班 / 共通)</option>
-            </select>
+            
+            <!-- 全員快捷鈕與成員點選標籤池 -->
+            <div class="flex items-center gap-1.5 mb-1">
+              <button type="button" id="btnToggleAllMembers" class="px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-100">
+                <span>🌟 全員 (全班/全體)</span>
+              </button>
+              <span class="text-[10px] text-slate-400">或在下方勾選特定成員：</span>
+            </div>
+
+            <!-- 可複選的成員標籤清單容器 -->
+            <div id="eventMemberCheckboxes" class="max-h-32 overflow-y-auto p-1.5 bg-white rounded-lg border border-indigo-100 flex flex-wrap gap-1.5">
+              <!-- JS 動態生成可多選的成員按鈕 -->
+            </div>
           </div>
 
           <!-- 分類標籤區塊 -->
@@ -941,6 +951,9 @@
       { id: 'mem_3', seatNo: '03', name: '李大同', avatar: '🧒' }
     ];
 
+    // 當前編輯中行程所選取的成員 ID 陣列（若包含 'ALL_MEMBERS' 則代表全員）
+    let currentModalSelectedMemberIds = [];
+
     let titleConfig = {
       text: '工作行事曆',
       iconType: 'emoji',
@@ -1421,14 +1434,10 @@
 
     function updateMemberDropdowns() {
       const filterSelect = document.getElementById('filterMember');
-      const eventMemberSelect = document.getElementById('eventMemberSelect');
-      if (!filterSelect || !eventMemberSelect) return;
+      if (!filterSelect) return;
 
       const curFilter = filterSelect.value;
-      const curSelected = eventMemberSelect.value;
-
-      filterSelect.innerHTML = '<option value="ALL">全部成員/學生</option>';
-      eventMemberSelect.innerHTML = '<option value="">無特定指定 (全班 / 共通)</option>';
+      filterSelect.innerHTML = '<option value="ALL">全部成員 / 全班行事曆</option>';
 
       // 依座號排序
       const sorted = [...customMembers].sort((a, b) => {
@@ -1440,19 +1449,70 @@
       sorted.forEach(mem => {
         const optFilter = document.createElement('option');
         optFilter.value = mem.id;
-        optFilter.textContent = `${mem.seatNo ? '[' + mem.seatNo + '] ' : ''}${mem.avatar || '👤'} ${mem.name}`;
+        optFilter.textContent = `${mem.seatNo ? '[' + mem.seatNo + '號] ' : ''}${mem.avatar || '👤'} ${mem.name} 的行事曆`;
         filterSelect.appendChild(optFilter);
-
-        const optEvent = document.createElement('option');
-        optEvent.value = mem.id;
-        optEvent.textContent = `${mem.seatNo ? '[' + mem.seatNo + '號] ' : ''}${mem.avatar || '👤'} ${mem.name}`;
-        eventMemberSelect.appendChild(optEvent);
       });
 
       filterSelect.value = customMembers.some(m => m.id === curFilter) ? curFilter : 'ALL';
-      if (customMembers.some(m => m.id === curSelected)) {
-        eventMemberSelect.value = curSelected;
+
+      // 同步更新行程彈窗內的成員複選池
+      renderEventMemberOptions();
+    }
+
+    // 渲染行程編輯視窗內的成員標籤（支援多選）
+    function renderEventMemberOptions() {
+      const container = document.getElementById('eventMemberCheckboxes');
+      const btnAll = document.getElementById('btnToggleAllMembers');
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      const isAllSelected = currentModalSelectedMemberIds.includes('ALL_MEMBERS');
+      if (btnAll) {
+        if (isAllSelected) {
+          btnAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-600 bg-indigo-600 text-white";
+        } else {
+          btnAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-50";
+        }
       }
+
+      if (customMembers.length === 0) {
+        container.innerHTML = '<span class="text-[11px] text-slate-400 p-1">尚未建立成員名單，請先點擊上方「編輯/新增名單」</span>';
+        return;
+      }
+
+      const sorted = [...customMembers].sort((a, b) => (parseInt(a.seatNo, 10) || 999) - (parseInt(b.seatNo, 10) || 999));
+
+      sorted.forEach(mem => {
+        const isChecked = !isAllSelected && currentModalSelectedMemberIds.includes(mem.id);
+        const tag = document.createElement('button');
+        tag.type = "button";
+        tag.className = `px-2 py-1 text-xs rounded-lg border transition flex items-center gap-1 ${
+          isChecked
+            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs font-semibold'
+            : isAllSelected
+              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+              : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-400'
+        }`;
+
+        tag.innerHTML = `<span>${mem.avatar || '👤'}</span>${mem.seatNo ? '<span class="font-mono text-[10px]">' + mem.seatNo + '</span>' : ''}<span>${mem.name}</span>`;
+
+        tag.addEventListener('click', () => {
+          if (isAllSelected) {
+            // 若原本是全員，點擊特定成員則取消全員，轉為只選該位成員
+            currentModalSelectedMemberIds = [mem.id];
+          } else {
+            if (currentModalSelectedMemberIds.includes(mem.id)) {
+              currentModalSelectedMemberIds = currentModalSelectedMemberIds.filter(id => id !== mem.id);
+            } else {
+              currentModalSelectedMemberIds.push(mem.id);
+            }
+          }
+          renderEventMemberOptions();
+        });
+
+        container.appendChild(tag);
+      });
     }
 
     function openMemberModal() {
@@ -1470,7 +1530,7 @@
       container.innerHTML = '';
 
       if (customMembers.length === 0) {
-        container.innerHTML = '<div class="text-center text-slate-400 py-6 text-xs">尚未建立成員名單，可於上方新增或點擊批次匯入</div>';
+        container.innerHTML = '<div class="text-center text-slate-400 py-6 text-xs">尚未建立成員名單，可於上方直接輸入新增，或點擊下方批次匯入</div>';
         return;
       }
 
@@ -1485,9 +1545,20 @@
         left.className = "flex items-center gap-2 flex-1 mr-2";
 
         // 頭像微調按鈕
-        const avatarBtn = document.createElement('span');
-        avatarBtn.className = "w-7 h-7 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-base shrink-0 shadow-2xs select-none";
+        const avatarBtn = document.createElement('button');
+        avatarBtn.type = "button";
+        avatarBtn.className = "w-7 h-7 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-base shrink-0 shadow-2xs select-none hover:scale-110 transition";
         avatarBtn.textContent = mem.avatar || '👦';
+        avatarBtn.title = "點擊快速切換頭像";
+        avatarBtn.addEventListener('click', () => {
+          const sampleAvatars = ['👦', '👧', '🧑', '🧒', '🐱', '🐶', '🐰', '🐻', '🐼', '🦁', '🌟', '🚀', '⚽', '🎨', '📚', '🎵', '🍎', '🍀', '👾', '👑'];
+          const curIdx = sampleAvatars.indexOf(mem.avatar);
+          mem.avatar = sampleAvatars[(curIdx + 1) % sampleAvatars.length];
+          avatarBtn.textContent = mem.avatar;
+          broadcastRoomChanges();
+          updateMemberDropdowns();
+          renderCalendar();
+        });
 
         // 座號輸入
         const noInput = document.createElement('input');
@@ -1711,10 +1782,15 @@
         updateModalBadge(catSelect.value);
       }
 
-      const memSelect = document.getElementById('eventMemberSelect');
-      if (memSelect) {
-        memSelect.value = eventData.memberId || '';
+      // 成員多選設定（相容舊格式 memberId 及新格式 memberIds）
+      if (Array.isArray(eventData.memberIds)) {
+        currentModalSelectedMemberIds = [...eventData.memberIds];
+      } else if (eventData.memberId) {
+        currentModalSelectedMemberIds = [eventData.memberId];
+      } else {
+        currentModalSelectedMemberIds = [];
       }
+      renderEventMemberOptions();
 
       // 解析時間填入下拉選單
       const hourSelect = document.getElementById('eventHourSelect');
@@ -1764,15 +1840,15 @@
       const title = document.getElementById('eventTitleInput').value.trim();
       const time = document.getElementById('eventTimeInput').value.trim();
       const categoryId = document.getElementById('eventCategorySelect').value;
-      const memberId = document.getElementById('eventMemberSelect').value;
       const notes = document.getElementById('eventNotesInput').value.trim();
+      const memberIds = [...currentModalSelectedMemberIds];
 
       if (!title) return;
 
       if (id) {
         const index = eventsList.findIndex(ev => ev.id === id);
         if (index !== -1) {
-          eventsList[index] = { id, date, title, time, categoryId, memberId, notes };
+          eventsList[index] = { id, date, title, time, categoryId, memberIds, notes };
         }
       } else {
         eventsList.push({
@@ -1781,7 +1857,7 @@
           title,
           time,
           categoryId,
-          memberId,
+          memberIds,
           notes
         });
       }
@@ -1883,7 +1959,17 @@
         const dayEvents = eventsList.filter(ev => {
           if (ev.date !== dateStr) return false;
           if (filterCategory !== 'ALL' && ev.categoryId !== filterCategory) return false;
-          if (filterMember !== 'ALL' && ev.memberId !== filterMember) return false;
+
+          // 成員個別篩選器（包含全員行程或包含該成員的行程）
+          if (filterMember !== 'ALL') {
+            const evMembers = Array.isArray(ev.memberIds)
+              ? ev.memberIds
+              : ev.memberId ? [ev.memberId] : [];
+            const isAll = evMembers.includes('ALL_MEMBERS');
+            const hasMember = evMembers.includes(filterMember);
+            if (!isAll && !hasMember) return false;
+          }
+
           return true;
         });
 
@@ -1891,7 +1977,6 @@
 
         dayEvents.forEach(ev => {
           const cat = getCategoryInfo(ev.categoryId);
-          const mem = getMemberInfo(ev.memberId);
           const evItem = document.createElement('div');
           const boldCls = fontConfig.bold ? 'font-bold' : 'font-medium';
           evItem.className = `text-[10px] sm:text-xs px-1.5 py-1 rounded border flex items-center gap-1 ${boldCls} truncate shadow-2xs cursor-pointer hover:brightness-95 transition`;
@@ -1900,19 +1985,47 @@
           evItem.style.borderColor = hexToRgba(cat.color, 0.35);
           evItem.style.color = cat.color;
 
-          const memberTag = mem ? ` [${mem.seatNo ? mem.seatNo + '號 ' : ''}${mem.avatar || ''}${mem.name}]` : '';
-          evItem.title = `[${cat.name}]${memberTag} ${ev.time ? ev.time + ' ' : ''}${ev.title}${ev.notes ? '\n' + ev.notes : ''}`;
+          // 整理成員資訊
+          const evMembers = Array.isArray(ev.memberIds)
+            ? ev.memberIds
+            : ev.memberId ? [ev.memberId] : [];
+
+          const isAll = evMembers.includes('ALL_MEMBERS');
+
+          let memberTip = '';
+          if (isAll) {
+            memberTip = ' [全員]';
+          } else if (evMembers.length > 0) {
+            const names = evMembers.map(mId => {
+              const m = getMemberInfo(mId);
+              return m ? (m.seatNo ? `${m.seatNo}號 ` : '') + m.name : '';
+            }).filter(Boolean);
+            if (names.length) memberTip = ` [${names.join(', ')}]`;
+          }
+
+          evItem.title = `[${cat.name}]${memberTip} ${ev.time ? ev.time + ' ' : ''}${ev.title}${ev.notes ? '\n' + ev.notes : ''}`;
 
           const dot = document.createElement('span');
           dot.className = "w-1.5 h-1.5 rounded-full shrink-0";
           dot.style.backgroundColor = cat.color;
 
-          // 成員標記徽章（若有指派成員，顯示頭像與座號）
+          // 成員標記徽章（支援全員標記與多成員小頭像並列）
           let memberBadge = null;
-          if (mem) {
+          if (isAll) {
             memberBadge = document.createElement('span');
-            memberBadge.className = "inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-white/80 text-[10px] text-slate-700 border border-slate-200/80 shrink-0 font-normal";
-            memberBadge.innerHTML = `<span class="text-[11px]">${mem.avatar || '👤'}</span>${mem.seatNo ? '<span class="font-mono text-[9px] text-slate-500">' + mem.seatNo + '</span>' : ''}`;
+            memberBadge.className = "inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-indigo-100/90 text-[10px] text-indigo-700 border border-indigo-200 shrink-0 font-medium";
+            memberBadge.innerHTML = `<span>🌟</span><span>全員</span>`;
+          } else if (evMembers.length > 0) {
+            memberBadge = document.createElement('span');
+            memberBadge.className = "inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-white/90 text-[10px] text-slate-700 border border-slate-200/80 shrink-0 font-normal";
+            
+            const avatarsHtml = evMembers.slice(0, 3).map(mId => {
+              const m = getMemberInfo(mId);
+              return m ? `<span class="text-[11px]">${m.avatar || '👤'}</span>` : '';
+            }).join('');
+            
+            const moreCount = evMembers.length > 3 ? `<span class="font-mono text-[9px] text-slate-500">+${evMembers.length - 3}</span>` : '';
+            memberBadge.innerHTML = avatarsHtml + moreCount;
           }
 
           const titleSpan = document.createElement('span');
@@ -1931,7 +2044,7 @@
               title: ev.title,
               time: ev.time || '',
               categoryId: ev.categoryId || customCategories[0]?.id,
-              memberId: ev.memberId || '',
+              memberIds: ev.memberIds || (ev.memberId ? [ev.memberId] : []),
               notes: ev.notes || ''
             });
           });
@@ -1948,7 +2061,7 @@
             title: '',
             time: '',
             categoryId: customCategories[0]?.id,
-            memberId: '',
+            memberIds: [],
             notes: ''
           });
         });
@@ -2372,13 +2485,25 @@
       const btnAddMember = document.getElementById('btnAddMember');
       const btnPickAvatar = document.getElementById('btnPickMemberAvatar');
       const avatarBox = document.getElementById('avatarPickerContainer');
-      const newMemberNo = document.getElementById('newMemberNo');
+      const btnToggleAll = document.getElementById('btnToggleAllMembers');
 
       if (btnManageMembers) btnManageMembers.addEventListener('click', openMemberModal);
       if (btnQuickOpenMember) btnQuickOpenMember.addEventListener('click', openMemberModal);
       if (btnCloseMember) btnCloseMember.addEventListener('click', closeMemberModal);
       if (btnDoneMember) btnDoneMember.addEventListener('click', closeMemberModal);
       if (btnAddMember) btnAddMember.addEventListener('click', handleAddMember);
+
+      // 全員快捷切換按鈕事件
+      if (btnToggleAll) {
+        btnToggleAll.addEventListener('click', () => {
+          if (currentModalSelectedMemberIds.includes('ALL_MEMBERS')) {
+            currentModalSelectedMemberIds = [];
+          } else {
+            currentModalSelectedMemberIds = ['ALL_MEMBERS'];
+          }
+          renderEventMemberOptions();
+        });
+      }
 
       if (btnPickAvatar && avatarBox) {
         btnPickAvatar.addEventListener('click', () => {
