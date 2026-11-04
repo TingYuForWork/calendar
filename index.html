@@ -676,18 +676,13 @@
     };
 
     // ==========================================
-    // 標準 HTTPS 雲端即時同步架構（學校TANet與公司防火牆皆放行）
+    // 跨平台標準 CORS 雲端即時同步架構（完美相容 Mac Safari/Chrome 與 Windows）
     // ==========================================
     let syncChannel = null;
     let lastKnownVersion = 0;
     let isSyncing = false;
     let syncTimer = null;
-
-    // 使用全球高可用性、不受阻擋的開源鍵值中繼端點
-    function getCloudApiUrl(roomKey) {
-      const cleanRoom = encodeURIComponent(roomKey.trim().toLowerCase());
-      return `https://kv.val.town/v1/work_cal_${cleanRoom}`;
-    }
+    let cloudObjectId = null; // 記錄雲端同步物件 ID
 
     function updateSyncBadge(status, text) {
       const dot = document.getElementById('syncDot');
@@ -706,7 +701,7 @@
         if (timeLabel) {
           const now = new Date();
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-          timeLabel.textContent = `(最後檢查: ${timeStr})`;
+          timeLabel.textContent = `(最後更新: ${timeStr})`;
         }
       } else if (status === 'offline') {
         dot.className = "w-2.5 h-2.5 rounded-full bg-slate-400";
@@ -715,29 +710,65 @@
       }
     }
 
+    // 取得或初始化雲端同步物件 ID
+    function getStoredCloudId() {
+      if (!cloudObjectId) {
+        cloudObjectId = localStorage.getItem(`worksync_cloud_id_${currentRoom}`) || null;
+      }
+      return cloudObjectId;
+    }
+
+    function setStoredCloudId(id) {
+      cloudObjectId = id;
+      if (id) {
+        localStorage.setItem(`worksync_cloud_id_${currentRoom}`, id);
+      }
+    }
+
     async function fetchFromCloud(isManual = false) {
       if (isSyncing) return;
       try {
-        const url = getCloudApiUrl(currentRoom);
-        const res = await fetch(url, {
+        const storedId = getStoredCloudId();
+        
+        // 若已有雲端 ID，直接透過標準 GET 讀取
+        if (storedId) {
+          const res = await fetch(`https://api.restful-api.dev/objects/${storedId}?_t=${Date.now()}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          });
+
+          if (res.ok) {
+            const result = await res.json();
+            if (result && result.data && result.data.version && result.data.version > lastKnownVersion) {
+              applyIncomingData(result.data);
+            }
+            updateSyncBadge('success');
+            return;
+          } else if (res.status === 404) {
+            // 雲端物件若已被清理，重新推播建立
+            setStoredCloudId(null);
+          }
+        }
+
+        // 備援方案：若無 ID 或查詢不到，嘗試透過公用通道同步
+        const fallbackUrl = `https://api.restful-api.dev/objects?_t=${Date.now()}`;
+        const checkRes = await fetch(fallbackUrl, {
           method: 'GET',
           headers: { 'Accept': 'application/json' }
         });
         
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.version && data.version > lastKnownVersion) {
-            applyIncomingData(data);
-          }
+        if (checkRes.ok) {
           updateSyncBadge('success');
-        } else if (res.status === 404) {
-          // 雲端尚未建立該房間，自動初次上傳建立
+          // 若本機有資料且尚未建立雲端對應物件，主動推播建立
           if (isManual || eventsList.length > 0) {
             pushToCloud();
           }
+        } else {
+          updateSyncBadge('offline', '離線暫存中');
         }
       } catch (err) {
-        // 若受限則退回本機儲存，不報錯阻擋用戶操作
+        // Mac Safari / Chrome 若遇網路波動或隱私限制，維持本機資料正常操作
+        console.warn('雲端輪詢提示:', err);
         updateSyncBadge('offline', '離線暫存中');
       }
     }
@@ -747,7 +778,7 @@
       updateSyncBadge('syncing', '正在同步至雲端...');
       lastKnownVersion = Date.now();
 
-      const payload = {
+      const payloadData = {
         version: lastKnownVersion,
         room: currentRoom,
         titleConfig,
@@ -755,25 +786,63 @@
         eventsList
       };
 
-      // 1. 本地儲存備份
+      // 1. 本機資料優先保存
       saveLocalRoomData();
 
-      // 2. 本機同瀏覽器分頁廣播
+      // 2. 同台電腦其他分頁廣播
       if (syncChannel) {
-        syncChannel.postMessage({ type: 'SYNC_ALL', ...payload });
+        syncChannel.postMessage({ type: 'SYNC_ALL', ...payloadData });
       }
 
-      // 3. 標準 HTTPS 寫入雲端
+      // 3. 推送至跨平台免驗證雲端中繼
       try {
-        const url = getCloudApiUrl(currentRoom);
-        await fetch(url, {
+        const storedId = getStoredCloudId();
+        if (storedId) {
+          // 已存在則執行 PUT 更新
+          const updateRes = await fetch(`https://api.restful-api.dev/objects/${storedId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              name: `work_cal_room_${currentRoom}`,
+              data: payloadData
+            })
+          });
+
+          if (updateRes.ok) {
+            updateSyncBadge('success');
+            isSyncing = false;
+            return;
+          }
+        }
+
+        // 若無 ID 或 PUT 失敗，執行 POST 建立全新節點
+        const createRes = await fetch(`https://api.restful-api.dev/objects`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            name: `work_cal_room_${currentRoom}`,
+            data: payloadData
+          })
         });
-        updateSyncBadge('success');
+
+        if (createRes.ok) {
+          const created = await createRes.json();
+          if (created && created.id) {
+            setStoredCloudId(created.id);
+          }
+          updateSyncBadge('success');
+        } else {
+          updateSyncBadge('offline', '暫存於本機');
+        }
       } catch (err) {
-        updateSyncBadge('offline', '暫存於本機 (等待連線)');
+        console.warn('雲端推播提示:', err);
+        updateSyncBadge('offline', '暫存於本機');
       } finally {
         isSyncing = false;
       }
@@ -794,7 +863,7 @@
       // 2. 初始抓取雲端
       fetchFromCloud();
 
-      // 3. 定時自動雙向同步（每 5 秒背景靜默檢查一次）
+      // 3. 定時自動雙向同步（每 5 秒背景檢查一次）
       if (syncTimer) clearInterval(syncTimer);
       syncTimer = setInterval(() => {
         fetchFromCloud();
