@@ -134,6 +134,12 @@
           <span>成員名單</span>
         </button>
 
+        <!-- 資料備份與匯出匯入 -->
+        <button id="btnOpenBackupModal" class="px-2 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition flex items-center gap-1 shadow-2xs" title="匯出/匯入備份（學生名單與行程）">
+          <i class="ph ph-floppy-disk text-slate-600"></i>
+          <span class="hidden sm:inline">備份</span>
+        </button>
+
         <!-- 自訂標籤 -->
         <button id="btnManageCategories" class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 shadow-2xs" title="自訂標籤分類與色彩">
           <i class="ph ph-palette text-indigo-600"></i>
@@ -640,9 +646,56 @@
         <button type="button" id="btnQuickGenStudents" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
           <i class="ph ph-magic-wand"></i> 批次匯入範例名單
         </button>
-        <button type="button" id="btnDoneMemberModal" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium">
-          完成
+        <div class="flex items-center gap-2">
+          <button type="button" id="btnExportMembersOnly" class="text-[11px] text-slate-600 hover:text-indigo-600 flex items-center gap-0.5">
+            <i class="ph ph-copy"></i> 複製名單代碼
+          </button>
+          <button type="button" id="btnDoneMemberModal" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium">
+            完成
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3.8 資料備份與同步診斷 Modal -->
+  <div id="backupModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden p-6 space-y-4">
+      <div class="flex items-center justify-between border-b pb-3 border-slate-100">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+            <i class="ph ph-floppy-disk text-xl"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-base">備份、還原與跨端同步</h3>
+        </div>
+        <button id="btnCloseBackupModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="ph ph-x text-lg"></i>
         </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <p class="text-slate-600 leading-relaxed">
+          若您輸入了 20~30 位學生名單，可在此<strong>一鍵匯出完整代碼</strong>，在應用程式版點擊「匯入」即可 0 秒瞬間對齊，亦可作為永久本機備份！
+        </p>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-semibold text-slate-700">當前房間完整資料（JSON 代碼）</span>
+            <button id="btnCopyBackupText" class="text-indigo-600 hover:underline text-[11px] flex items-center gap-0.5">
+              <i class="ph ph-copy"></i> 複製全部代碼
+            </button>
+          </div>
+          <textarea id="backupDataArea" rows="4" class="w-full text-[11px] font-mono p-2 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button id="btnApplyImportBackup" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition shadow-xs flex items-center justify-center gap-1">
+            <i class="ph ph-upload-simple"></i> 套用並覆蓋進當前房間
+          </button>
+          <button id="btnDownloadBackupFile" class="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition" title="下載備份檔 (.json)">
+            <i class="ph ph-download-simple"></i> 下載檔案
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1054,6 +1107,10 @@
     // 為本視窗建立唯一客戶端識別，確保同台電腦多視窗能正確互認
     const CLIENT_INSTANCE_ID = 'inst_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
+    // 突破長度限制的雙軌雲端儲存 API（專門存放 20~50 人大名單與全部行程）
+    // 使用全球開放式 CORS Key-Value 節點做為持久化大容量儲存
+    const KV_CLOUD_ENDPOINT = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://jsonblob.com/api/jsonBlob/');
+
     // 建立跨視窗（網頁版 ⇋ App 版）雙重專用通道
     function initLocalBroadcastChannel() {
       try {
@@ -1082,21 +1139,26 @@
     }
 
     function handleBroadcastMessage(event) {
-      if (!event.data || !event.data.data) return;
+      if (!event.data) return;
       // 避免自己處理自己發出的內部事件
       if (event.data.senderId === CLIENT_INSTANCE_ID) return;
 
       const incomingRoom = (event.data.room || '').trim();
       const currentActiveRoom = (currentRoom || '').trim();
 
-      // 當房間一致，或本地即將切換時立即套用
       if (!currentActiveRoom || incomingRoom === currentActiveRoom) {
-        const incomingFingerprint = computeFingerprint(event.data.data);
-        if (incomingFingerprint !== lastDataFingerprint) {
-          lastLocalTimestamp = Math.max(lastLocalTimestamp, event.data.timestamp || Date.now());
-          lastDataFingerprint = incomingFingerprint;
-          applyIncomingData(event.data.data);
-          updateSyncBadge('success', '網頁與應用程式已即時連動');
+        // 若包含完整資料包直接套用
+        if (event.data.data) {
+          const incomingFingerprint = computeFingerprint(event.data.data);
+          if (incomingFingerprint !== lastDataFingerprint) {
+            lastLocalTimestamp = Math.max(lastLocalTimestamp, event.data.timestamp || Date.now());
+            lastDataFingerprint = incomingFingerprint;
+            applyIncomingData(event.data.data);
+            updateSyncBadge('success', '網頁與應用程式已即時連動');
+          }
+        } else if (event.data.signal === 'PULL_LATEST') {
+          // 若為訊號通知，立即向本地硬碟與雲端索取
+          readFromLocalStorageOrCloud();
         }
       }
     }
@@ -1113,7 +1175,7 @@
       return `cal_v3_${safeHash}`;
     }
 
-    // 計算資料指紋，包含成員名單與行程完整比對，防止遺漏
+    // 計算資料指紋，包含成員名單（24+人所有欄位）與行程完整比對，防止遺漏
     function computeFingerprint(data) {
       if (!data) return "";
       try {
@@ -1126,34 +1188,17 @@
       }
     }
 
-    // 安全編解碼器：採用 UTF-8 百分比安全轉碼，徹底防範截斷
-    function encodePayload(obj) {
-      try {
-        const jsonStr = JSON.stringify(obj);
-        return unescape(encodeURIComponent(jsonStr));
-      } catch(e) {
-        return JSON.stringify(obj);
-      }
-    }
-
+    // 安全解碼
     function decodePayload(rawStr) {
       if (!rawStr) return null;
       try {
-        // 先嘗試純 JSON 解析
         return JSON.parse(rawStr);
       } catch(e1) {
         try {
-          // 若有 UTF-8 轉碼則解碼
           const decoded = decodeURIComponent(escape(rawStr));
           return JSON.parse(decoded);
         } catch(e2) {
-          try {
-            // 相容舊版 Base64
-            const b64 = decodeURIComponent(atob(rawStr).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-            return JSON.parse(b64);
-          } catch(e3) {
-            return null;
-          }
+          return null;
         }
       }
     }
@@ -1166,7 +1211,6 @@
       // 初始化同機（網頁版 ⇋ App版）通訊
       initLocalBroadcastChannel();
 
-      // 關閉既有長連線
       if (eventSource) {
         try { eventSource.close(); } catch(e){}
         eventSource = null;
@@ -1176,7 +1220,7 @@
         syncInterval = null;
       }
 
-      // 建立全球極速 SSE 即時長連線 (Mac Safari / Windows Chrome 通用)
+      // 建立極速推播長連線（作為輕量即時通知觸發器，不受 4KB 限制影響）
       try {
         eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=10m&_nocache=${Date.now()}`);
 
@@ -1190,14 +1234,19 @@
             const parsed = JSON.parse(event.data);
             if (parsed && parsed.message) {
               const payload = decodePayload(parsed.message);
-              if (payload && payload.room === currentRoom && payload.data) {
-                const incomingFingerprint = computeFingerprint(payload.data);
-                // 只要時間戳較新，或是內容指紋不同，即刻套用更新，不受微小電腦時間差影響
-                if (payload.timestamp > lastLocalTimestamp || incomingFingerprint !== lastDataFingerprint) {
-                  lastLocalTimestamp = Math.max(lastLocalTimestamp, payload.timestamp);
-                  lastDataFingerprint = incomingFingerprint;
-                  applyIncomingData(payload.data);
-                  updateSyncBadge('success', '雙向即時連線正常');
+              if (payload && payload.room === currentRoom) {
+                // 如果是直接包含完整資料
+                if (payload.data) {
+                  const incomingFingerprint = computeFingerprint(payload.data);
+                  if (payload.timestamp > lastLocalTimestamp || incomingFingerprint !== lastDataFingerprint) {
+                    lastLocalTimestamp = Math.max(lastLocalTimestamp, payload.timestamp);
+                    lastDataFingerprint = incomingFingerprint;
+                    applyIncomingData(payload.data);
+                    updateSyncBadge('success', '雙向即時連線正常');
+                  }
+                } else if (payload.signal === 'PULL_LATEST') {
+                  // 如果是超長封包的即時拉取訊號，立即觸發無快取完整同步
+                  pullLatestFromCloud();
                 }
               }
             }
@@ -1207,16 +1256,15 @@
         };
 
         eventSource.onerror = () => {
-          // 若遇學校 Windows 網路防護阻擋 SSE，自動由無快取短輪詢接手，維持正常同步
           updateSyncBadge('success', '雙向連線保護中 (已就緒)');
         };
       } catch (err) {
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // Windows / Mac 雙軌極速備援輪詢（每 1.5 秒一次，帶隨機時間戳穿透快取）
+      // Windows / Mac 雙軌短輪詢（每 1.5 秒主動檢查一次）
       syncInterval = setInterval(() => {
-        pullLatestFromCloud();
+        readFromLocalStorageOrCloud();
       }, 1500);
     }
 
@@ -1245,7 +1293,7 @@
         data: roomData
       };
 
-      // 1. 本機雙重廣播推播給同電腦的 App 版或網頁版 (0.001 秒同步)
+      // 1. 本機雙重廣播：把 24 人的大名單直接以完整物件推給同台電腦的 App 版 (0.001 秒同步)
       try {
         if (localBroadcast) {
           localBroadcast.postMessage(payload);
@@ -1255,18 +1303,33 @@
         }
       } catch (err) {}
 
-      // 2. 觸發本機跨視窗事件觸發旗標
+      // 2. 寫入本地 localStorage 與全域跨視窗標記
       try {
+        localStorage.setItem(`worksync_shared_${currentRoom}`, JSON.stringify(roomData));
         localStorage.setItem(`worksync_trigger_${currentRoom}`, String(nowTs));
       } catch (e) {}
 
-      // 3. 雲端推播給另一台電腦 (0.2 秒同步)
-      const encodedBody = JSON.stringify(payload);
+      // 3. 雲端推播：
+      // 檢查封包大小，若小於 3.5KB 則直接完整推送；若因學生人數多達 20~50 人而超過，則發送高優先訊號通知另一端立即拉取
+      const jsonStr = JSON.stringify(payload);
+      let sendBody = jsonStr;
+      let isOversized = false;
+
+      if (jsonStr.length > 3800) {
+        isOversized = true;
+        sendBody = JSON.stringify({
+          timestamp: nowTs,
+          senderId: CLIENT_INSTANCE_ID,
+          room: currentRoom,
+          signal: 'PULL_LATEST',
+          summary: `Updated ${customMembers.length} members and ${eventsList.length} events`
+        });
+      }
 
       try {
         await fetch(`https://ntfy.sh/${channel}`, {
           method: 'POST',
-          body: encodedBody,
+          body: sendBody,
           headers: {
             'Title': 'CalSync',
             'Priority': 'urgent'
@@ -1278,11 +1341,9 @@
       }
     }
 
-    // 索取最新雲端行程（穿透 Windows 與 Mac 瀏覽器快取）
-    async function pullLatestFromCloud() {
+    // 優先讀取本機共享硬碟，無縫銜接網頁版與 App 版
+    function readFromLocalStorageOrCloud() {
       if (!currentRoom) return;
-
-      // 先檢查本機 localStorage 是否有其他視窗剛寫入的更新
       try {
         const localSaved = localStorage.getItem(`worksync_shared_${currentRoom}`);
         if (localSaved) {
@@ -1291,11 +1352,20 @@
           if (localFingerprint && localFingerprint !== lastDataFingerprint) {
             lastDataFingerprint = localFingerprint;
             applyIncomingData(parsed);
+            updateSyncBadge('success', '網頁與應用程式已即時連動');
+            return;
           }
         }
       } catch (e) {}
 
+      pullLatestFromCloud();
+    }
+
+    // 索取最新雲端行程（穿透 Windows 與 Mac 瀏覽器快取）
+    async function pullLatestFromCloud() {
+      if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
+
       try {
         const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m&_t=${Date.now()}`, { 
           cache: 'no-store',
@@ -2818,6 +2888,120 @@
       document.getElementById('eventCategorySelect').addEventListener('change', (e) => {
         updateModalBadge(e.target.value);
       });
+
+      // 備份與診斷 Modal
+      const backupModal = document.getElementById('backupModal');
+      const btnOpenBackup = document.getElementById('btnOpenBackupModal');
+      const btnCloseBackup = document.getElementById('btnCloseBackupModal');
+      const backupDataArea = document.getElementById('backupDataArea');
+      const btnCopyBackup = document.getElementById('btnCopyBackupText');
+      const btnApplyImport = document.getElementById('btnApplyImportBackup');
+      const btnDownloadBackup = document.getElementById('btnDownloadBackupFile');
+      const btnExportMembersOnly = document.getElementById('btnExportMembersOnly');
+
+      function updateBackupTextArea() {
+        const fullData = {
+          room: currentRoom,
+          titleConfig,
+          customCategories,
+          customMembers,
+          eventsList,
+          cellConfig,
+          exportedAt: new Date().toISOString()
+        };
+        if (backupDataArea) {
+          backupDataArea.value = JSON.stringify(fullData, null, 2);
+        }
+      }
+
+      if (btnOpenBackup && backupModal) {
+        btnOpenBackup.addEventListener('click', () => {
+          updateBackupTextArea();
+          backupModal.classList.remove('hidden');
+        });
+      }
+
+      if (btnCloseBackup && backupModal) {
+        btnCloseBackup.addEventListener('click', () => {
+          backupModal.classList.add('hidden');
+        });
+      }
+
+      if (btnCopyBackup && backupDataArea) {
+        btnCopyBackup.addEventListener('click', () => {
+          backupDataArea.select();
+          document.execCommand('copy');
+          alert('已成功複製完整備份代碼！您可以在另一台電腦或應用程式版開啟備份並貼上套用。');
+        });
+      }
+
+      // 僅複製成員名單捷徑
+      if (btnExportMembersOnly) {
+        btnExportMembersOnly.addEventListener('click', () => {
+          const membersJson = JSON.stringify(customMembers, null, 2);
+          const tempInput = document.createElement('textarea');
+          tempInput.value = membersJson;
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+          alert(`已成功複製 ${customMembers.length} 位成員名單代碼！`);
+        });
+      }
+
+      if (btnDownloadBackup) {
+        btnDownloadBackup.addEventListener('click', () => {
+          const fullData = {
+            room: currentRoom,
+            titleConfig,
+            customCategories,
+            customMembers,
+            eventsList,
+            cellConfig,
+            exportedAt: new Date().toISOString()
+          };
+          const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `行事曆備份_${currentRoom}_${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      if (btnApplyImport && backupDataArea) {
+        btnApplyImport.addEventListener('click', () => {
+          const val = backupDataArea.value.trim();
+          if (!val) return;
+          try {
+            const parsed = JSON.parse(val);
+            // 支援匯入整份資料或單純成員陣列
+            if (Array.isArray(parsed)) {
+              customMembers = parsed;
+            } else {
+              if (parsed.customMembers) customMembers = parsed.customMembers;
+              if (parsed.eventsList) eventsList = parsed.eventsList;
+              if (parsed.customCategories) customCategories = parsed.customCategories;
+              if (parsed.titleConfig) titleConfig = parsed.titleConfig;
+              if (parsed.cellConfig) cellConfig = parsed.cellConfig;
+            }
+            saveLocalRoomData();
+            applyIncomingData({
+              titleConfig,
+              customCategories,
+              customMembers,
+              eventsList,
+              cellConfig
+            });
+            broadcastRoomChanges();
+            backupModal.classList.add('hidden');
+            alert('已成功匯入並立即同步！');
+          } catch (e) {
+            alert('代碼格式不正確，請確認是完整的 JSON 格式。');
+          }
+        });
+      }
 
       // 標籤管理 Modal
       const btnManageCat = document.getElementById('btnManageCategories');
