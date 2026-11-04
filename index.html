@@ -984,14 +984,13 @@
 
   <!-- 核心資料邏輯與即時通訊 Script -->
   <script>
-    // 預設標籤分類
+    // 預設標籤分類（校園專用：學生活動、班級活動、學校活動、重點事項、國定假日）
     const DEFAULT_CATEGORIES = [
-      { id: 'cat_blue', name: '工作常規', color: '#2563eb' },
-      { id: 'cat_emerald', name: '會議商討', color: '#16a34a' },
-      { id: 'cat_amber', name: '待辦重點', color: '#ea580c' },
-      { id: 'cat_rose', name: '緊急重要', color: '#dc2626' },
-      { id: 'cat_purple', name: '專案進度', color: '#9333ea' },
-      { id: 'cat_gray', name: '備註雜項', color: '#64748b' }
+      { id: 'cat_student', name: '學生活動', color: '#2563eb' },
+      { id: 'cat_class', name: '班級活動', color: '#16a34a' },
+      { id: 'cat_school', name: '學校活動', color: '#9333ea' },
+      { id: 'cat_key', name: '重點事項', color: '#ea580c' },
+      { id: 'cat_holiday', name: '國定假日', color: '#dc2626' }
     ];
 
     // 全域共編狀態
@@ -1048,6 +1047,7 @@
     let eventSource = null;
     let syncInterval = null;
     let lastLocalTimestamp = 0;
+    let lastDataFingerprint = "";
 
     // 將任何語言的房間代碼安全編碼為全球唯一頻道名稱 (支援中文、英文、數字，保證跨裝置一致)
     function getCleanChannelName(roomStr) {
@@ -1058,7 +1058,22 @@
         hash = hash & hash; // Convert to 32bit integer
       }
       const safeHash = Math.abs(hash).toString(36);
-      return `cal_v2_${safeHash}`;
+      return `cal_v3_${safeHash}`;
+    }
+
+    // 計算資料指紋，用以確認是否有實際內容差異，防止不同裝置時間差導致丟棄
+    function computeFingerprint(data) {
+      try {
+        return JSON.stringify({
+          evLen: data.eventsList?.length || 0,
+          evs: data.eventsList || [],
+          cats: data.customCategories || [],
+          mems: data.customMembers || [],
+          cell: data.cellConfig || {}
+        });
+      } catch(e) {
+        return "";
+      }
     }
 
     // 中文安全編解碼器 (防止推播中文 JSON 截斷或伺服器字元編碼報錯)
@@ -1095,7 +1110,7 @@
 
       // 關閉既有長連線
       if (eventSource) {
-        eventSource.close();
+        try { eventSource.close(); } catch(e){}
         eventSource = null;
       }
       if (syncInterval) {
@@ -1105,7 +1120,7 @@
 
       // 建立全球極速 SSE 即時長連線 (Mac Safari / Windows Chrome 通用)
       try {
-        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=10m`);
+        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=10m&_nocache=${Date.now()}`);
 
         eventSource.onopen = () => {
           updateSyncBadge('success', '雙向即時連線正常');
@@ -1118,10 +1133,13 @@
             if (parsed && parsed.message) {
               const payload = decodePayload(parsed.message);
               if (payload && payload.room === currentRoom && payload.data) {
-                if (payload.timestamp > lastLocalTimestamp) {
-                  lastLocalTimestamp = payload.timestamp;
+                const incomingFingerprint = computeFingerprint(payload.data);
+                // 只要時間戳較新，或是內容指紋不同，即刻套用更新，不受微小電腦時間差影響
+                if (payload.timestamp > lastLocalTimestamp || incomingFingerprint !== lastDataFingerprint) {
+                  lastLocalTimestamp = Math.max(lastLocalTimestamp, payload.timestamp);
+                  lastDataFingerprint = incomingFingerprint;
                   applyIncomingData(payload.data);
-                  updateSyncBadge('success', '已即時接收最新行程');
+                  updateSyncBadge('success', '雙向即時連線正常');
                 }
               }
             }
@@ -1131,17 +1149,17 @@
         };
 
         eventSource.onerror = () => {
-          // 若遇暫態波動，自動轉入定時靜默輪詢模式維持正常更新
-          updateSyncBadge('success', '雲端連線保護中 (已就緒)');
+          // 若遇學校 Windows 網路防護阻擋 SSE，自動由無快取短輪詢接手，維持正常同步
+          updateSyncBadge('success', '雙向連線保護中 (已就緒)');
         };
       } catch (err) {
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // 雙向定時備援輪詢（每 4 秒靜默索取最新，確保任何一台開機即抓取對齊）
+      // Windows / Mac 雙軌極速備援輪詢（每 2 秒一次，帶隨機時間戳穿透快取）
       syncInterval = setInterval(() => {
         pullLatestFromCloud();
-      }, 4000);
+      }, 2000);
     }
 
     // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 毫秒級互傳)
@@ -1153,16 +1171,19 @@
       saveLocalRoomData();
       updateSyncBadge('syncing', '正在同步至雲端...');
 
+      const roomData = {
+        titleConfig,
+        customCategories,
+        customMembers,
+        eventsList,
+        cellConfig
+      };
+      lastDataFingerprint = computeFingerprint(roomData);
+
       const payload = {
         timestamp: nowTs,
         room: currentRoom,
-        data: {
-          titleConfig,
-          customCategories,
-          customMembers,
-          eventsList,
-          cellConfig
-        }
+        data: roomData
       };
 
       const encodedBody = encodePayload(payload);
@@ -1176,18 +1197,24 @@
             'Priority': 'urgent'
           }
         });
-        updateSyncBadge('success', '已即時同步到所有裝置');
+        updateSyncBadge('success', '雙向即時連線正常');
       } catch (e) {
         updateSyncBadge('offline', '已保存在本機快取');
       }
     }
 
-    // 索取最新雲端行程
+    // 索取最新雲端行程（穿透 Windows 與 Mac 瀏覽器快取）
     async function pullLatestFromCloud() {
       if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
       try {
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m`, { cache: 'no-store' });
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m&_t=${Date.now()}`, { 
+          cache: 'no-store',
+          headers: {
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }
+        });
         if (res.ok) {
           const text = await res.text();
           if (text) {
@@ -1198,8 +1225,10 @@
                 if (item && item.message) {
                   const payload = decodePayload(item.message);
                   if (payload && payload.room === currentRoom && payload.data) {
-                    if (payload.timestamp > lastLocalTimestamp) {
-                      lastLocalTimestamp = payload.timestamp;
+                    const incomingFingerprint = computeFingerprint(payload.data);
+                    if (payload.timestamp > lastLocalTimestamp || incomingFingerprint !== lastDataFingerprint) {
+                      lastLocalTimestamp = Math.max(lastLocalTimestamp, payload.timestamp);
+                      lastDataFingerprint = incomingFingerprint;
                       applyIncomingData(payload.data);
                       updateSyncBadge('success', '雙向即時連線正常');
                       break;
@@ -1313,8 +1342,8 @@
               date: todayStr,
               title: `🎉 歡迎使用「${currentRoom}」房間！`,
               time: '09:00',
-              categoryId: 'cat_emerald',
-              memberId: 'mem_1',
+              categoryId: 'cat_class',
+              memberIds: ['ALL_MEMBERS'],
               notes: '這是新房間的示範行程。點擊此處即可編輯或刪除，也可以點擊日期空白處新增更多事項。'
             }
           ];
