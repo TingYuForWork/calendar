@@ -335,42 +335,64 @@
                  class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <label for="eventTimeInput" class="block text-xs font-medium text-slate-600">時間 (可選)</label>
-              <span class="text-[10px] text-slate-400">可自填或下拉</span>
+        <div class="space-y-3">
+          <!-- 時間與課節選擇區塊 -->
+          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <label for="eventTimeInput" class="block text-xs font-semibold text-slate-700">時間 / 課節設定</label>
+              <span class="text-[10px] text-slate-400">支援課節選單、小時:分鐘、自填文字</span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <input type="text" id="eventTimeInput" placeholder="例如 09:30" 
-                     class="w-24 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
-              <select id="eventTimeSelect" class="flex-1 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition cursor-pointer text-slate-700">
-                <option value="">選時段...</option>
-                <option value="全天">全天</option>
-                <option value="07:30">07:30 早自習</option>
-                <option value="08:00">08:00</option>
-                <option value="08:30">08:30</option>
-                <option value="09:00">09:00</option>
-                <option value="09:30">09:30</option>
-                <option value="10:00">10:00</option>
-                <option value="10:30">10:30</option>
-                <option value="11:00">11:00</option>
-                <option value="11:30">11:30</option>
-                <option value="12:00">12:00 午休</option>
-                <option value="13:00">13:00</option>
-                <option value="13:30">13:30</option>
-                <option value="14:00">14:00</option>
-                <option value="14:30">14:30</option>
-                <option value="15:00">15:00</option>
-                <option value="15:30">15:30</option>
-                <option value="16:00">16:00 放學</option>
-                <option value="16:30">16:30</option>
-                <option value="17:00">17:00</option>
-                <option value="18:00">18:00</option>
-                <option value="19:00">19:00 晚間</option>
-              </select>
+
+            <!-- 第一列：學校課節快捷選單 + 直接文字輸入框 -->
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <span class="block text-[11px] text-slate-500 mb-0.5">學校課節 / 作息：</span>
+                <select id="eventPeriodSelect" class="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer text-slate-700">
+                  <option value="">選擇作息或課節...</option>
+                  <option value="全天">全天</option>
+                  <option value="晨光">晨光時間</option>
+                  <option value="早自習">早自習</option>
+                  <option value="升旗">升旗 / 朝會</option>
+                  <option value="第一節">第一節 (08:40-09:20)</option>
+                  <option value="第二節">第二節 (09:30-10:10)</option>
+                  <option value="第三節">第三節 (10:30-11:10)</option>
+                  <option value="第四節">第四節 (11:20-12:00)</option>
+                  <option value="午餐">午餐時間</option>
+                  <option value="午休">午休時間</option>
+                  <option value="第五節">第五節 (13:30-14:10)</option>
+                  <option value="第六節">第六節 (14:20-15:00)</option>
+                  <option value="第七節">第七節 (15:20-16:00)</option>
+                  <option value="第八節">第八節 / 課輔</option>
+                  <option value="放學">放學</option>
+                </select>
+              </div>
+
+              <div>
+                <span class="block text-[11px] text-slate-500 mb-0.5">最終呈現內容 (可直接修改)：</span>
+                <input type="text" id="eventTimeInput" placeholder="例如 08:30 或 第一節" 
+                       class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition font-medium text-slate-800">
+              </div>
+            </div>
+
+            <!-- 第二列：選「時」與「分」下拉選單 -->
+            <div class="pt-1.5 border-t border-slate-200/60 flex items-center gap-2">
+              <span class="text-[11px] text-slate-500 whitespace-nowrap">或選確切時間：</span>
+              <div class="flex items-center gap-1 flex-1">
+                <select id="eventHourSelect" class="flex-1 px-1.5 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer text-slate-700">
+                  <option value="">時</option>
+                </select>
+                <span class="text-xs font-bold text-slate-400">:</span>
+                <select id="eventMinuteSelect" class="flex-1 px-1.5 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer text-slate-700">
+                  <option value="">分</option>
+                </select>
+                <button type="button" id="btnClearTimeSelection" class="text-[11px] px-2 py-1 text-slate-500 hover:text-rose-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition whitespace-nowrap" title="清空時間設定">
+                  清除
+                </button>
+              </div>
             </div>
           </div>
+
+          <!-- 分類標籤區塊 -->
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="block text-xs font-medium text-slate-600">分類標籤</label>
@@ -1440,7 +1462,35 @@
     // ==========================================
     // 行程新增 / 編輯彈出視窗
     // ==========================================
+    function populateHourAndMinuteOptions() {
+      const hourSelect = document.getElementById('eventHourSelect');
+      const minSelect = document.getElementById('eventMinuteSelect');
+      if (!hourSelect || !minSelect) return;
+
+      if (hourSelect.options.length <= 1) {
+        for (let h = 6; h <= 23; h++) {
+          const val = String(h).padStart(2, '0');
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = `${val} 時`;
+          hourSelect.appendChild(opt);
+        }
+      }
+
+      if (minSelect.options.length <= 1) {
+        for (let m = 0; m < 60; m += 5) {
+          const val = String(m).padStart(2, '0');
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = `${val} 分`;
+          minSelect.appendChild(opt);
+        }
+      }
+    }
+
     function openEventModal(eventData) {
+      populateHourAndMinuteOptions();
+
       const modal = document.getElementById('eventModal');
       const modalTitle = document.getElementById('modalTitle');
       const dateDisplay = document.getElementById('modalDateDisplay');
@@ -1448,7 +1498,9 @@
       const eventDateInput = document.getElementById('eventDate');
       const titleInput = document.getElementById('eventTitleInput');
       const timeInput = document.getElementById('eventTimeInput');
-      const timeSelect = document.getElementById('eventTimeSelect');
+      const periodSelect = document.getElementById('eventPeriodSelect');
+      const hourSelect = document.getElementById('eventHourSelect');
+      const minSelect = document.getElementById('eventMinuteSelect');
       const notesInput = document.getElementById('eventNotesInput');
       const deleteBtn = document.getElementById('btnDeleteEvent');
       const eventCatSelect = document.getElementById('eventCategorySelect');
@@ -1457,11 +1509,30 @@
       eventDateInput.value = eventData.date;
       dateDisplay.textContent = eventData.date;
       titleInput.value = eventData.title;
-      timeInput.value = eventData.time || '';
-      if (timeSelect) {
-        // 若時間剛好符合選單的值則切換選中，否則預設為空白
-        timeSelect.value = Array.from(timeSelect.options).some(opt => opt.value === eventData.time) ? eventData.time : '';
+
+      const rawTime = eventData.time || '';
+      timeInput.value = rawTime;
+
+      // 比對是否符合學校作息 / 課節
+      if (periodSelect) {
+        const hasPeriod = Array.from(periodSelect.options).some(o => o.value === rawTime);
+        periodSelect.value = hasPeriod ? rawTime : '';
       }
+
+      // 比對是否符合 HH:MM 格式
+      if (hourSelect && minSelect) {
+        const timeMatch = rawTime.match(/^(\d{1,2}):(\d{2})$/);
+        if (timeMatch) {
+          const hStr = String(parseInt(timeMatch[1], 10)).padStart(2, '0');
+          const mStr = timeMatch[2];
+          hourSelect.value = Array.from(hourSelect.options).some(o => o.value === hStr) ? hStr : '';
+          minSelect.value = Array.from(minSelect.options).some(o => o.value === mStr) ? mStr : '';
+        } else {
+          hourSelect.value = '';
+          minSelect.value = '';
+        }
+      }
+
       notesInput.value = eventData.notes;
 
       if (eventData.categoryId) {
@@ -1893,22 +1964,48 @@
         renderCalendar();
       });
 
-      // 時間下拉選單連動文字輸入框
-      const eventTimeSelect = document.getElementById('eventTimeSelect');
+      // 時、分、課節與手動輸入框全面連動
+      populateHourAndMinuteOptions();
       const eventTimeInput = document.getElementById('eventTimeInput');
-      if (eventTimeSelect && eventTimeInput) {
-        eventTimeSelect.addEventListener('change', (e) => {
+      const eventPeriodSelect = document.getElementById('eventPeriodSelect');
+      const eventHourSelect = document.getElementById('eventHourSelect');
+      const eventMinuteSelect = document.getElementById('eventMinuteSelect');
+      const btnClearTime = document.getElementById('btnClearTimeSelection');
+
+      // 課節選單選擇時
+      if (eventPeriodSelect) {
+        eventPeriodSelect.addEventListener('change', (e) => {
           if (e.target.value) {
             eventTimeInput.value = e.target.value;
+            if (eventHourSelect) eventHourSelect.value = '';
+            if (eventMinuteSelect) eventMinuteSelect.value = '';
           }
         });
-        eventTimeInput.addEventListener('input', (e) => {
-          const val = e.target.value.trim();
-          if (Array.from(eventTimeSelect.options).some(opt => opt.value === val)) {
-            eventTimeSelect.value = val;
-          } else {
-            eventTimeSelect.value = '';
-          }
+      }
+
+      // 時、分選單連動
+      function handleTimePickChange() {
+        const h = eventHourSelect ? eventHourSelect.value : '';
+        const m = eventMinuteSelect ? eventMinuteSelect.value : '';
+        if (h && m) {
+          eventTimeInput.value = `${h}:${m}`;
+          if (eventPeriodSelect) eventPeriodSelect.value = '';
+        } else if (h && !m) {
+          eventTimeInput.value = `${h}:00`;
+          if (eventMinuteSelect) eventMinuteSelect.value = '00';
+          if (eventPeriodSelect) eventPeriodSelect.value = '';
+        }
+      }
+
+      if (eventHourSelect) eventHourSelect.addEventListener('change', handleTimePickChange);
+      if (eventMinuteSelect) eventMinuteSelect.addEventListener('change', handleTimePickChange);
+
+      if (btnClearTime) {
+        btnClearTime.addEventListener('click', () => {
+          eventTimeInput.value = '';
+          if (eventPeriodSelect) eventPeriodSelect.value = '';
+          if (eventHourSelect) eventHourSelect.value = '';
+          if (eventMinuteSelect) eventMinuteSelect.value = '';
         });
       }
 
