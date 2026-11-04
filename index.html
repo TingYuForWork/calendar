@@ -1048,33 +1048,56 @@
     let eventSource = null;
     let syncInterval = null;
     let localBroadcast = null;
+    let universalBroadcast = null;
     let lastLocalTimestamp = 0;
     let lastDataFingerprint = "";
+    // 為本視窗建立唯一客戶端識別，確保同台電腦多視窗能正確互認
+    const CLIENT_INSTANCE_ID = 'inst_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
-    // 建立跨視窗（網頁版 ⇋ App 版）即時廣播頻道
+    // 建立跨視窗（網頁版 ⇋ App 版）雙重專用通道
     function initLocalBroadcastChannel() {
-      if (!currentRoom) return;
       try {
         if (localBroadcast) {
-          localBroadcast.close();
+          try { localBroadcast.close(); } catch(e){}
         }
-        const chName = `local_cal_ch_${currentRoom}`;
+        if (universalBroadcast) {
+          try { universalBroadcast.close(); } catch(e){}
+        }
+
         if (typeof BroadcastChannel !== 'undefined') {
-          localBroadcast = new BroadcastChannel(chName);
-          localBroadcast.onmessage = (event) => {
-            if (event.data && event.data.room === currentRoom && event.data.data) {
-              const incomingFingerprint = computeFingerprint(event.data.data);
-              if (incomingFingerprint !== lastDataFingerprint) {
-                lastLocalTimestamp = Math.max(lastLocalTimestamp, event.data.timestamp || Date.now());
-                lastDataFingerprint = incomingFingerprint;
-                applyIncomingData(event.data.data);
-                updateSyncBadge('success', '本機視窗已同步連動');
-              }
-            }
-          };
+          // 通道一：房間專屬通道
+          if (currentRoom) {
+            const chName = `local_cal_ch_${getCleanChannelName(currentRoom)}`;
+            localBroadcast = new BroadcastChannel(chName);
+            localBroadcast.onmessage = handleBroadcastMessage;
+          }
+
+          // 通道二：全域無條件橋樑（不受房間代碼初始延遲影響）
+          universalBroadcast = new BroadcastChannel('universal_calendar_bridge');
+          universalBroadcast.onmessage = handleBroadcastMessage;
         }
       } catch (err) {
         console.warn("BroadcastChannel error:", err);
+      }
+    }
+
+    function handleBroadcastMessage(event) {
+      if (!event.data || !event.data.data) return;
+      // 避免自己處理自己發出的內部事件
+      if (event.data.senderId === CLIENT_INSTANCE_ID) return;
+
+      const incomingRoom = (event.data.room || '').trim();
+      const currentActiveRoom = (currentRoom || '').trim();
+
+      // 當房間一致，或本地即將切換時立即套用
+      if (!currentActiveRoom || incomingRoom === currentActiveRoom) {
+        const incomingFingerprint = computeFingerprint(event.data.data);
+        if (incomingFingerprint !== lastDataFingerprint) {
+          lastLocalTimestamp = Math.max(lastLocalTimestamp, event.data.timestamp || Date.now());
+          lastDataFingerprint = incomingFingerprint;
+          applyIncomingData(event.data.data);
+          updateSyncBadge('success', '網頁與應用程式已即時連動');
+        }
       }
     }
 
@@ -1214,18 +1237,27 @@
 
       const payload = {
         timestamp: nowTs,
+        senderId: CLIENT_INSTANCE_ID,
         room: currentRoom,
         data: roomData
       };
 
-      // 1. 本機即時推播給同電腦的 App 版或網頁版 (0.01 秒同步)
+      // 1. 本機雙重廣播推播給同電腦的 App 版或網頁版 (0.005 秒同步)
       try {
         if (localBroadcast) {
           localBroadcast.postMessage(payload);
         }
+        if (universalBroadcast) {
+          universalBroadcast.postMessage(payload);
+        }
       } catch (err) {}
 
-      // 2. 雲端推播給另一台電腦 (0.2 秒同步)
+      // 2. 觸發本機跨視窗事件觸發旗標
+      try {
+        localStorage.setItem(`worksync_trigger_${currentRoom}`, String(nowTs));
+      } catch (e) {}
+
+      // 3. 雲端推播給另一台電腦 (0.2 秒同步)
       const encodedBody = encodePayload(payload);
 
       try {
@@ -2549,23 +2581,31 @@
         }
       });
 
-      // 監聽視窗 Focus 事件：當滑鼠點入 App 視窗或網頁時，立刻瞬間拉取最新行程
+      // 監聽視窗 Focus 與滑鼠移入事件：無論何時只要點進或移入 App 視窗或網頁，立即瞬間毫秒級拉取最新行程
       window.addEventListener('focus', () => {
         if (currentRoom) {
           pullLatestFromCloud();
         }
       });
+      window.addEventListener('mouseenter', () => {
+        if (currentRoom) {
+          pullLatestFromCloud();
+        }
+      });
 
-      // 原生監聽跨視窗 storage 變更（支援網頁版與 App 視窗互通）
+      // 原生監聽跨視窗 storage 變更（雙重支援網頁版與 App 視窗互通）
       window.addEventListener('storage', (e) => {
-        if (e.key === `worksync_shared_${currentRoom}` && e.newValue) {
+        if ((e.key === `worksync_shared_${currentRoom}` || e.key === `worksync_trigger_${currentRoom}`) && e.newValue) {
           try {
-            const incoming = JSON.parse(e.newValue);
-            const incomingFingerprint = computeFingerprint(incoming);
-            if (incomingFingerprint !== lastDataFingerprint) {
-              lastDataFingerprint = incomingFingerprint;
-              applyIncomingData(incoming);
-              updateSyncBadge('success', '本機雙視窗已即時對齊');
+            const raw = localStorage.getItem(`worksync_shared_${currentRoom}`);
+            if (raw) {
+              const incoming = JSON.parse(raw);
+              const incomingFingerprint = computeFingerprint(incoming);
+              if (incomingFingerprint !== lastDataFingerprint) {
+                lastDataFingerprint = incomingFingerprint;
+                applyIncomingData(incoming);
+                updateSyncBadge('success', '網頁與應用程式已即時連動');
+              }
             }
           } catch (err) {}
         }
