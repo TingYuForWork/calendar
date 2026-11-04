@@ -550,28 +550,83 @@
 
         <!-- 常用頭像小圖盤（可展開挑選） -->
         <div id="avatarPickerContainer" class="p-2 bg-white rounded-lg border border-slate-200 space-y-1 hidden">
-          <div class="text-[10px] text-slate-400 font-medium">點選挑選頭像小圖：</div>
-          <div class="grid grid-cols-10 gap-1 text-base text-center">
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">👦</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">👧</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🧑</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🧒</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🐱</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🐶</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🐰</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🐻</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🐼</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🦁</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🌟</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🚀</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">⚽</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🎨</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">📚</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🎵</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🍎</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">🍀</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">👾</button>
-            <button type="button" class="avatar-option p-0.5 hover:scale-125 transition">👑</button>
+          <div class="text-[10px] text-slate-400 font-medium">點選挑選頭像小圖（超過 60 種選擇）：</div>
+          <div class="max-h-48 overflow-y-auto grid grid-cols-10 gap-1 text-lg text-center p-1 bg-slate-50/50 rounded-lg">
+            <!-- 學生與人物 (12種) -->
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="男學生">👦</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="女學生">👧</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="青年">🧑</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幼童">🧒</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="戴眼鏡學生">🤓</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="笑臉">😊</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="自信">😎</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="天使">👼</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小隊長">👮</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="探險家">🤠</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="超人">🦸</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小精靈">🧙</button>
+
+            <!-- 可愛動物 (16種) -->
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小貓">🐱</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小狗">🐶</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="兔子">🐰</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小熊">🐻</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="熊貓">🐼</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="無尾熊">🐨</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獅子">🦁</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="老虎">🐯</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="青蛙">🐸</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小豬">🐷</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="猴子">🐵</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小雞">🐥</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="企鵝">🐧</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="海豚">🐬</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="恐龍">🦖</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獨角獸">🦄</button>
+
+            <!-- 校園與學習文具 (12種) -->
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="書本">📚</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="書包">🎒</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鉛筆">✏️</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="畫筆調色盤">🎨</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="顯微鏡">🔬</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="望遠鏡">🔭</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="筆電">💻</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="地球儀">🌍</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="放大鏡">🔍</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鈴鐺">🔔</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="直尺">📐</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="便籤">📝</button>
+
+            <!-- 運動與才藝 (12種) -->
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="足球">⚽</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="籃球">🏀</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="棒球">⚾</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="網球">🎾</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="羽球">🏸</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獎盃">🏆</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獎牌">🥇</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="音符">🎵</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鋼琴鍵盤">🎹</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="吉他">🎸</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="電玩遊戲">🎮</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="滑板">🛹</button>
+
+            <!-- 自然、星空與幸運符 (14種) -->
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="星星">⭐</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="閃亮">✨</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="火箭">🚀</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="太陽">☀️</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="彩虹">🌈</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幸運草">🍀</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="櫻花">🌸</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幼苗">🌱</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="向日葵">🌻</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="紅蘋果">🍎</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="草莓">🍓</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="皇冠">👑</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鑽石">💎</button>
+            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="愛心">❤️</button>
           </div>
         </div>
       </div>
@@ -1432,6 +1487,20 @@
     // ==========================================
     let selectedAvatarEmoji = '👦';
 
+    // 擴充包含超過 60 種高解析度頭像小圖庫
+    const AVATAR_LIST_60 = [
+      // 學生與人物
+      '👦', '👧', '🧑', '🧒', '🤓', '😊', '😎', '👼', '👮', '🤠', '🦸', '🧙',
+      // 可愛動物
+      '🐱', '🐶', '🐰', '🐻', '🐼', '🐨', '🦁', '🐯', '🐸', '🐷', '🐵', '🐥', '🐧', '🐬', '🦖', '🦄',
+      // 校園與文具
+      '📚', '🎒', '✏️', '🎨', '🔬', '🔭', '💻', '🌍', '🔍', '🔔', '📐', '📝',
+      // 運動與才藝
+      '⚽', '🏀', '⚾', '🎾', '🏸', '🏆', '🥇', '🎵', '🎹', '🎸', '🎮', '🛹',
+      // 自然、星空與符號
+      '⭐', '✨', '🚀', '☀️', '🌈', '🍀', '🌸', '🌱', '🌻', '🍎', '🍓', '👑', '💎', '❤️'
+    ];
+
     function updateMemberDropdowns() {
       const filterSelect = document.getElementById('filterMember');
       if (!filterSelect) return;
@@ -1549,11 +1618,10 @@
         avatarBtn.type = "button";
         avatarBtn.className = "w-7 h-7 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-base shrink-0 shadow-2xs select-none hover:scale-110 transition";
         avatarBtn.textContent = mem.avatar || '👦';
-        avatarBtn.title = "點擊快速切換頭像";
+        avatarBtn.title = "點擊循環切換頭像小圖";
         avatarBtn.addEventListener('click', () => {
-          const sampleAvatars = ['👦', '👧', '🧑', '🧒', '🐱', '🐶', '🐰', '🐻', '🐼', '🦁', '🌟', '🚀', '⚽', '🎨', '📚', '🎵', '🍎', '🍀', '👾', '👑'];
-          const curIdx = sampleAvatars.indexOf(mem.avatar);
-          mem.avatar = sampleAvatars[(curIdx + 1) % sampleAvatars.length];
+          const curIdx = AVATAR_LIST_60.indexOf(mem.avatar);
+          mem.avatar = AVATAR_LIST_60[(curIdx + 1) % AVATAR_LIST_60.length];
           avatarBtn.textContent = mem.avatar;
           broadcastRoomChanges();
           updateMemberDropdowns();
@@ -2523,16 +2591,16 @@
       const btnQuickGen = document.getElementById('btnQuickGenStudents');
       if (btnQuickGen) {
         btnQuickGen.addEventListener('click', () => {
-          const sampleNames = ['小明', '小華', '大同', '美美', '志豪', '雅婷', '冠宇', '欣怡'];
-          const sampleAvatars = ['👦', '👧', '🧒', '🐱', '🚀', '🌟', '🐻', '🎨'];
+          const sampleNames = ['小明', '小華', '大同', '美美', '志豪', '雅婷', '冠宇', '欣怡', '家豪', '淑芬'];
           const startNo = customMembers.length + 1;
           for (let i = 0; i < 5; i++) {
             const no = String(startNo + i).padStart(2, '0');
+            const randomAvatar = AVATAR_LIST_60[Math.floor(Math.random() * AVATAR_LIST_60.length)];
             customMembers.push({
               id: 'mem_' + Date.now() + '_' + i,
               seatNo: no,
               name: sampleNames[(startNo + i - 1) % sampleNames.length],
-              avatar: sampleAvatars[(startNo + i - 1) % sampleAvatars.length]
+              avatar: randomAvatar
             });
           }
           broadcastRoomChanges();
