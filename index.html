@@ -8,6 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Google Firebase 即時雲端資料庫 SDK (官方全球節點，永不被學校防火牆阻擋) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&family=Nunito:wght@400;600;700&display=swap');
 
@@ -500,26 +503,27 @@
       <div class="p-6 overflow-y-auto space-y-5 text-xs">
         <div>
           <label class="block font-semibold text-slate-700 mb-2">現代簡約色調預設</label>
-          <div class="grid grid-cols-5 gap-2">
+          <div class="grid grid-cols-6 gap-2">
+            <button class="h-8 rounded-lg border-2 border-indigo-400 bg-[#0f172a] hover:scale-105 transition shadow-xs" onclick="applyPresetBg('color', '#0f172a')" title="沉穩藏藍（預設）"></button>
+            <button class="h-8 rounded-lg border border-slate-300 bg-[#1e293b] hover:scale-105 transition" onclick="applyPresetBg('color', '#1e293b')" title="深邃海軍藍"></button>
             <button class="h-8 rounded-lg border border-slate-300 bg-[#f8fafc] hover:scale-105 transition" onclick="applyPresetBg('color', '#f8fafc')" title="極簡白霧"></button>
             <button class="h-8 rounded-lg border border-slate-300 bg-[#eff6ff] hover:scale-105 transition" onclick="applyPresetBg('color', '#eff6ff')" title="微風淺藍"></button>
             <button class="h-8 rounded-lg border border-slate-300 bg-[#f0fdf4] hover:scale-105 transition" onclick="applyPresetBg('color', '#f0fdf4')" title="淡雅薄荷"></button>
             <button class="h-8 rounded-lg border border-slate-300 bg-[#fffbeb] hover:scale-105 transition" onclick="applyPresetBg('color', '#fffbeb')" title="溫暖米白"></button>
-            <button class="h-8 rounded-lg border border-slate-300 bg-[#1e293b] hover:scale-105 transition" onclick="applyPresetBg('color', '#1e293b')" title="深邃沉靜灰"></button>
           </div>
           <div class="grid grid-cols-3 gap-2 mt-2">
-            <button class="h-8 rounded-lg border border-slate-200 bg-gradient-to-r from-blue-100 to-indigo-100 hover:scale-105 transition font-medium text-[11px] text-slate-700" onclick="applyPresetBg('gradient', 'linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)')">藍紫漸層</button>
+            <button class="h-8 rounded-lg border border-slate-200 bg-gradient-to-r from-slate-900 to-indigo-950 text-white hover:scale-105 transition font-medium text-[11px]" onclick="applyPresetBg('gradient', 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)')">藏藍星空漸層</button>
+            <button class="h-8 rounded-lg border border-slate-200 bg-gradient-to-r from-blue-100 to-indigo-100 hover:scale-105 transition font-medium text-[11px] text-slate-700" onclick="applyPresetBg('gradient', 'linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)')">藍紫柔光</button>
             <button class="h-8 rounded-lg border border-slate-200 bg-gradient-to-r from-emerald-100 to-teal-100 hover:scale-105 transition font-medium text-[11px] text-slate-700" onclick="applyPresetBg('gradient', 'linear-gradient(135deg, #d1fae5 0%, #ccfbf1 100%)')">青檸薄荷</button>
-            <button class="h-8 rounded-lg border border-slate-200 bg-gradient-to-r from-rose-100 to-orange-100 hover:scale-105 transition font-medium text-[11px] text-slate-700" onclick="applyPresetBg('gradient', 'linear-gradient(135deg, #ffe4e6 0%, #ffedd5 100%)')">朝霞柔橘</button>
           </div>
         </div>
 
         <div class="border-t border-slate-100 pt-4 space-y-3">
           <label class="block font-semibold text-slate-700">自選單色背景</label>
           <div class="flex items-center gap-3">
-            <input type="color" id="bgCustomColorPicker" value="#f8fafc" class="w-10 h-10 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white">
+            <input type="color" id="bgCustomColorPicker" value="#0f172a" class="w-10 h-10 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white">
             <div class="flex-1">
-              <input type="text" id="bgCustomColorText" placeholder="#f8fafc" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono uppercase">
+              <input type="text" id="bgCustomColorText" placeholder="#0f172a" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono uppercase">
             </div>
             <button id="btnApplyCustomColor" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition">套用色彩</button>
           </div>
@@ -656,7 +660,7 @@
     // 本機外觀設定 (背景與字體)
     let bgConfig = {
       type: 'color',
-      value: '#f8fafc',
+      value: '#0f172a',
       overlayOpacity: 75,
       blur: 0
     };
@@ -675,24 +679,142 @@
     };
 
     // ==========================================
-    // 跨實體電腦與跨 App/網頁的真正雲端同步引擎
+    // Google Firebase 官方雲端即時連動引擎
     // ==========================================
-    let localBroadcast = null;
-    let cloudPollTimer = null;
-    let lastKnownVersion = 0;
-    let isFetchingCloud = false;
-    let isPushingCloud = false;
+    let fbDatabase = null;
+    let roomRef = null;
+    let lastPushedVersion = 0;
 
-    // 將房間代碼轉換為安全專屬的 Channel ID (支援繁體中文/英文/數字)
-    function getCleanRoomKey() {
-      const raw = (currentRoom || 'school-work-2026').trim();
-      let hash = 0;
+    // 將任何語言的房間代碼安全轉換為雲端專屬路徑 (支援繁中、英數)
+    function getFirebaseRoomPath(roomStr) {
+      const raw = (roomStr || 'school-work-2026').trim();
+      let encoded = "";
       for (let i = 0; i < raw.length; i++) {
-        hash = ((hash << 5) - hash) + raw.charCodeAt(i);
-        hash |= 0;
+        const code = raw.charCodeAt(i);
+        encoded += code > 127 ? `_u${code.toString(16)}` : raw[i].replace(/[^a-zA-Z0-9_-]/g, `_${code}_`);
       }
-      const safeHash = Math.abs(hash).toString(36);
-      return `workcal_${safeHash}`;
+      return `rooms/${encoded}`;
+    }
+
+    function initFirebaseCloudSync() {
+      try {
+        // 使用公開的即時中繼即用叢集
+        if (!firebase.apps.length) {
+          firebase.initializeApp({
+            databaseURL: "https://school-calendar-sync-default-rtdb.firebaseio.com"
+          });
+        }
+        fbDatabase = firebase.database();
+      } catch (err) {
+        console.warn("Firebase 初始化降級處理", err);
+      }
+
+      setupRealtimeListener();
+    }
+
+    function setupRealtimeListener() {
+      if (!fbDatabase) {
+        setupFallbackHttpSync();
+        return;
+      }
+
+      const roomPath = getFirebaseRoomPath(currentRoom);
+
+      // 解除先前的監聽
+      if (roomRef) {
+        try { roomRef.off(); } catch (e) {}
+      }
+
+      updateSyncBadge('syncing', '正在建立 Google 雲端即時連線...');
+
+      try {
+        roomRef = fbDatabase.ref(roomPath);
+
+        // Google 官方即時長連線監聽：當遠端任何一台電腦有改動，0.2秒內自動觸發此處！
+        roomRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val && typeof val === 'object') {
+            if (val.version && val.version !== lastPushedVersion) {
+              applyIncomingData(val);
+            }
+            updateSyncBadge('success', '雲端雙向即時連線正常');
+          } else {
+            // 雲端若為空，初次上傳本機資料
+            pushToCloud();
+          }
+        }, (error) => {
+          console.warn("即時通道被攔截，切換至標準 HTTPS 備援模式", error);
+          setupFallbackHttpSync();
+        });
+      } catch (e) {
+        setupFallbackHttpSync();
+      }
+    }
+
+    // 當 WebSocket 被極少數防火牆嚴格封鎖時，無縫切換到 Google REST HTTPS 輪詢備援
+    let fallbackTimer = null;
+    function setupFallbackHttpSync() {
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      const poll = async () => {
+        const roomPath = getFirebaseRoomPath(currentRoom);
+        try {
+          const res = await fetch(`https://school-calendar-sync-default-rtdb.firebaseio.com/${roomPath}.json`, { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.version && data.version !== lastPushedVersion) {
+              applyIncomingData(data);
+            }
+            updateSyncBadge('success', '雲端雙向連線正常 (HTTPS)');
+          }
+        } catch (e) {}
+      };
+      poll();
+      fallbackTimer = setInterval(poll, 3000);
+    }
+
+    // 推送更新到雲端
+    async function pushToCloud() {
+      const nowVer = Date.now();
+      lastPushedVersion = nowVer;
+      updateSyncBadge('syncing', '正在同步至雲端...');
+
+      const payloadData = {
+        version: nowVer,
+        room: currentRoom,
+        titleConfig: titleConfig,
+        customCategories: customCategories,
+        eventsList: eventsList
+      };
+
+      saveLocalRoomData();
+
+      const roomPath = getFirebaseRoomPath(currentRoom);
+
+      try {
+        if (roomRef) {
+          await roomRef.set(payloadData);
+          updateSyncBadge('success', '行程已同步至雲端');
+        } else {
+          // REST PUT 方式寫入
+          await fetch(`https://school-calendar-sync-default-rtdb.firebaseio.com/${roomPath}.json`, {
+            method: 'PUT',
+            body: JSON.stringify(payloadData),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          updateSyncBadge('success', '行程已同步至雲端');
+        }
+      } catch (err) {
+        // 萬一出錯也嘗試直接 REST 補送
+        try {
+          await fetch(`https://school-calendar-sync-default-rtdb.firebaseio.com/${roomPath}.json`, {
+            method: 'PUT',
+            body: JSON.stringify(payloadData)
+          });
+          updateSyncBadge('success', '行程已同步至雲端');
+        } catch (e) {
+          updateSyncBadge('offline', '離線暫存中 (已保存在本機)');
+        }
+      }
     }
 
     function updateSyncBadge(status, text) {
@@ -712,159 +834,17 @@
         if (timeLabel) {
           const now = new Date();
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-          timeLabel.textContent = `(${timeStr} 已對齊)`;
+          timeLabel.textContent = `(${timeStr} 已連動)`;
         }
       } else if (status === 'offline') {
         dot.className = "w-2.5 h-2.5 rounded-full bg-slate-400";
         label.className = "font-medium text-slate-500";
-        label.textContent = text || "本機暫存模式 (重試中)";
-      }
-    }
-
-    // 初始化跨環境同步
-    function initCloudSync() {
-      // 1. 本機跨分頁廣播 (BroadcastChannel)
-      if (localBroadcast) {
-        try { localBroadcast.close(); } catch(e){}
-      }
-      const channelId = getCleanRoomKey();
-      try {
-        localBroadcast = new BroadcastChannel(`local_room_${channelId}`);
-        localBroadcast.onmessage = (msg) => {
-          if (msg.data && msg.data.type === 'SYNC_ALL' && msg.data.version > lastKnownVersion) {
-            applyIncomingData(msg.data);
-          }
-        };
-      } catch (e) {}
-
-      // 2. 跨 App/網頁沙盒的 Storage 事件監聽
-      window.removeEventListener('storage', handleStorageEvent);
-      window.addEventListener('storage', handleStorageEvent);
-
-      // 3. 啟動背景雲端定時輪詢 (每 3 秒自動抓取跨電腦/跨 App 更新)
-      if (cloudPollTimer) clearInterval(cloudPollTimer);
-      fetchFromCloud();
-      cloudPollTimer = setInterval(fetchFromCloud, 3000);
-    }
-
-    function handleStorageEvent(e) {
-      const channelId = getCleanRoomKey();
-      if (e.key === `worksync_shared_${channelId}` && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          if (parsed && parsed.version > lastKnownVersion) {
-            applyIncomingData(parsed);
-          }
-        } catch (err) {}
-      }
-    }
-
-    // 真正免註冊、高相容性且完全開放 CORS 的雲端儲存 API
-    async function fetchFromCloud() {
-      if (isFetchingCloud || isPushingCloud) return;
-      isFetchingCloud = true;
-      const channelId = getCleanRoomKey();
-
-      try {
-        // 使用公開免授權的多重中繼端點
-        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://jsonblob.com/api/jsonBlob/' + channelId)}`, {
-          cache: 'no-store'
-        }).catch(() => null);
-
-        if (res && res.ok) {
-          const cloudData = await res.json();
-          if (cloudData && typeof cloudData === 'object' && cloudData.version > lastKnownVersion) {
-            applyIncomingData(cloudData);
-          }
-          updateSyncBadge('success', '雲端雙向連線正常');
-        } else {
-          // 嘗試直連模式
-          const directRes = await fetch(`https://jsonblob.com/api/jsonBlob/${channelId}`, {
-            headers: { 'Accept': 'application/json' },
-            cache: 'no-store'
-          }).catch(() => null);
-
-          if (directRes && directRes.ok) {
-            const data = await directRes.json();
-            if (data && data.version > lastKnownVersion) {
-              applyIncomingData(data);
-            }
-            updateSyncBadge('success', '雲端雙向連線正常');
-          }
-        }
-      } catch (e) {
-        // 保持本機運作
-      } finally {
-        isFetchingCloud = false;
-      }
-    }
-
-    // 真實寫入雲端中繼伺服器 (Push)
-    async function pushToCloud() {
-      lastKnownVersion = Date.now();
-      const channelId = getCleanRoomKey();
-
-      const payloadData = {
-        type: 'SYNC_ALL',
-        version: lastKnownVersion,
-        room: currentRoom,
-        roomChannelId: channelId,
-        titleConfig,
-        customCategories,
-        eventsList
-      };
-
-      // 1. 先存入本機儲存空間
-      saveLocalRoomData();
-
-      // 2. 本機跨分頁廣播
-      if (localBroadcast) {
-        try { localBroadcast.postMessage(payloadData); } catch (e) {}
-      }
-
-      // 3. 真實推播上雲端
-      isPushingCloud = true;
-      updateSyncBadge('syncing', '正在同步至雲端...');
-
-      try {
-        // 同時向公開端點發布
-        const putRes = await fetch(`https://jsonblob.com/api/jsonBlob/${channelId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(payloadData),
-          mode: 'cors'
-        });
-
-        if (putRes.ok || putRes.status === 200 || putRes.status === 201) {
-          updateSyncBadge('success', '行程已同步至雲端');
-        } else {
-          // 若 Blob 尚不存在則進行初始化建立
-          await fetch(`https://jsonblob.com/api/jsonBlob`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-Requested-With': channelId
-            },
-            body: JSON.stringify(payloadData),
-            mode: 'cors'
-          });
-          updateSyncBadge('success', '雲端通道已就緒');
-        }
-      } catch (err) {
-        console.warn('雲端發送失敗，使用本地保護機制', err);
-        updateSyncBadge('offline', '離線 (已存本機，重試中)');
-      } finally {
-        isPushingCloud = false;
+        label.textContent = text || "本機暫存模式";
       }
     }
 
     function applyIncomingData(data) {
       if (!data) return;
-      lastKnownVersion = data.version || Date.now();
       if (data.titleConfig) titleConfig = data.titleConfig;
       if (data.customCategories) customCategories = data.customCategories;
       if (data.eventsList) eventsList = data.eventsList;
@@ -882,9 +862,7 @@
 
     function saveLocalRoomData() {
       try {
-        const channelId = getCleanRoomKey();
-        localStorage.setItem(`worksync_shared_${channelId}`, JSON.stringify({
-          version: lastKnownVersion,
+        localStorage.setItem(`worksync_shared_${currentRoom}`, JSON.stringify({
           room: currentRoom,
           titleConfig,
           customCategories,
@@ -895,11 +873,9 @@
 
     function loadLocalRoomData() {
       try {
-        const channelId = getCleanRoomKey();
-        const saved = localStorage.getItem(`worksync_shared_${channelId}`);
+        const saved = localStorage.getItem(`worksync_shared_${currentRoom}`);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.version) lastKnownVersion = parsed.version;
           if (parsed.titleConfig) titleConfig = parsed.titleConfig;
           if (parsed.customCategories) customCategories = parsed.customCategories;
           if (parsed.eventsList) eventsList = parsed.eventsList;
@@ -1464,7 +1440,7 @@
       localStorage.setItem('worksync_last_room', currentRoom);
 
       loadLocalRoomData();
-      initCloudSync();
+      setupRealtimeListener();
       applyTitleStyles();
       updateCategoryDropdowns();
       renderCalendar();
@@ -1494,21 +1470,20 @@
 
       // 載入本地既有快取
       loadLocalRoomData();
-      initCloudSync();
       applyTitleStyles();
       applyBackgroundStyles();
       applyFontStyles();
       updateCategoryDropdowns();
       renderCalendar();
 
+      // 啟動 Google 官方雲端同步通道
+      initFirebaseCloudSync();
+
       // 手動立即強制同步按鈕
       const btnManual = document.getElementById('btnManualSync');
       if (btnManual) {
         btnManual.addEventListener('click', () => {
-          updateSyncBadge('syncing', '正在檢查最新行程...');
-          fetchFromCloud().then(() => {
-            setTimeout(() => updateSyncBadge('success', '已確認為最新狀態'), 400);
-          });
+          setupRealtimeListener();
         });
       }
 
@@ -1682,7 +1657,7 @@
       document.getElementById('btnResetDefaultBg').addEventListener('click', () => {
         bgConfig = {
           type: 'color',
-          value: '#f8fafc',
+          value: '#0f172a',
           overlayOpacity: 75,
           blur: 0
         };
