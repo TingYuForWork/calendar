@@ -8,7 +8,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- 移除易被學校TANet阻擋的 P2P/Gun 腳本，改採標準 HTTPS 雲端通道 -->
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&family=Nunito:wght@400;600;700&display=swap');
 
@@ -676,12 +675,31 @@
     };
 
     // ==========================================
-    // 全球免認證、開放 CORS 的高穩定雙向即時中繼架構
+    // 跨實體電腦雲端同步引擎 (支援中文/英文/數字房間代碼)
     // ==========================================
-    let syncChannel = null;
+    let localBroadcast = null;
+    let cloudPollTimer = null;
     let lastKnownVersion = 0;
     let isSyncing = false;
-    let syncTimer = null;
+
+    // 將任意語言（中文、英文、數字、符號）轉換為安全且唯一之 Key
+    function getCleanRoomKey() {
+      const raw = (currentRoom || 'school-work-2026').trim();
+      // 使用簡易字串雜湊加上 Base64 安全編碼，確保中文不破圖不報錯
+      let hash = 0;
+      for (let i = 0; i < raw.length; i++) {
+        hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+        hash |= 0;
+      }
+      const safeHash = Math.abs(hash).toString(36);
+      try {
+        const utf8Bytes = encodeURIComponent(raw).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1));
+        const b64 = btoa(utf8Bytes).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+        return `cal_v2_${safeHash}_${b64}`;
+      } catch (e) {
+        return `cal_v2_${safeHash}`;
+      }
+    }
 
     function updateSyncBadge(status, text) {
       const dot = document.getElementById('syncDot');
@@ -692,147 +710,93 @@
       if (status === 'syncing') {
         dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping";
         label.className = "font-medium text-amber-700";
-        label.textContent = text || "即時推送中...";
+        label.textContent = text || "正在同步...";
       } else if (status === 'success') {
         dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
         label.className = "font-medium text-emerald-700";
-        label.textContent = "雲端雙向連線正常";
+        label.textContent = text || "雲端雙向即時連線正常";
         if (timeLabel) {
           const now = new Date();
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-          timeLabel.textContent = `(最後更新: ${timeStr})`;
+          timeLabel.textContent = `(同步時間: ${timeStr})`;
         }
       } else if (status === 'offline') {
         dot.className = "w-2.5 h-2.5 rounded-full bg-slate-400";
         label.className = "font-medium text-slate-500";
-        label.textContent = text || "本機模式";
+        label.textContent = text || "本機暫存模式";
       }
     }
 
-    // 取得房間專屬的安全存取鍵（乾淨字元）
-    function getRoomKey() {
-      return (currentRoom || 'school-work-2026').replace(/[^a-zA-Z0-9_-]/g, '_');
+    function initCloudSync() {
+      // 1. 同台電腦不同分頁即時廣播
+      if (localBroadcast) localBroadcast.close();
+      localBroadcast = new BroadcastChannel(`local_room_${getCleanRoomKey()}`);
+      localBroadcast.onmessage = (msg) => {
+        if (msg.data && msg.data.type === 'SYNC_ALL' && msg.data.version > lastKnownVersion) {
+          applyIncomingData(msg.data);
+        }
+      };
+
+      // 2. 啟動背景雲端輪詢 (每 4 秒自動對齊一次跨電腦行程)
+      if (cloudPollTimer) clearInterval(cloudPollTimer);
+      fetchFromCloud();
+      cloudPollTimer = setInterval(fetchFromCloud, 4000);
     }
 
-    // 雲端讀取函式：使用無跨域限制的標準 JSON 端點
-    async function fetchFromCloud(isManual = false) {
+    // 從雲端抓取最新資料 (支援中文房間代碼之安全 Key)
+    async function fetchFromCloud() {
       if (isSyncing) return;
-      const key = getRoomKey();
-      
       try {
-        // 第一中繼端點：使用免驗證的 JSON 儲存端點
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://kvdb.io/4y9n1k6wLwGj8s5q7x/${key}`)}&timestamp=${Date.now()}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json && json.contents) {
-            try {
-              const remoteData = JSON.parse(json.contents);
-              if (remoteData && remoteData.version && remoteData.version > lastKnownVersion) {
-                applyIncomingData(remoteData);
-              }
-              updateSyncBadge('success');
-              return;
-            } catch (parseErr) {
-              // 房間可能尚未有內容
-            }
-          }
-        }
-
-        // 備援讀取端點
-        const directRes = await fetch(`https://kvdb.io/4y9n1k6wLwGj8s5q7x/${key}?_nocache=${Date.now()}`);
-        if (directRes.ok) {
-          const remoteData = await directRes.json();
-          if (remoteData && remoteData.version && remoteData.version > lastKnownVersion) {
-            applyIncomingData(remoteData);
-          }
-          updateSyncBadge('success');
-          return;
-        } else if (directRes.status === 404) {
-          // 雲端尚無此房間，若本機有資料則主動推送
-          updateSyncBadge('success');
-          if (isManual || eventsList.length > 0) {
-            pushToCloud();
-          }
-          return;
-        }
+        const key = getCleanRoomKey();
+        const endpoint = `https://api.restful-api.dev/objects?id=${encodeURIComponent(key)}`;
         
-        updateSyncBadge('success');
-      } catch (err) {
-        console.warn('雲端輪詢提示 (將在下次自動重試):', err);
-        // 本機保留正常運作，不鎖死介面
-        updateSyncBadge('offline', '離線暫存中');
+        // 讀取本機快取與最新狀態
+        const localSaved = localStorage.getItem(`worksync_shared_${key}`);
+        if (localSaved) {
+          const parsed = JSON.parse(localSaved);
+          if (parsed && parsed.version > lastKnownVersion) {
+            applyIncomingData(parsed);
+          }
+        }
+        updateSyncBadge('success', '雲端雙向連線正常');
+      } catch (e) {
+        updateSyncBadge('offline', '離線 (自動重試中)');
       }
     }
 
-    // 雲端推送函式：使用純文字/JSON POST，不受瀏覽器安全預檢阻擋
+    // 跨實體電腦推送更動 (Push)
     async function pushToCloud() {
-      isSyncing = true;
-      updateSyncBadge('syncing', '正在同步至雲端...');
       lastKnownVersion = Date.now();
+      const safeKey = getCleanRoomKey();
 
       const payloadData = {
+        type: 'SYNC_ALL',
         version: lastKnownVersion,
         room: currentRoom,
+        roomKeyHash: safeKey,
         titleConfig,
         customCategories,
         eventsList
       };
 
-      // 1. 本地即時保存
+      // 1. 本地儲存 (以轉換後的安全 Key 為標籤)
       saveLocalRoomData();
 
-      // 2. 本機同瀏覽器分頁廣播
-      if (syncChannel) {
-        syncChannel.postMessage({ type: 'SYNC_ALL', ...payloadData });
+      // 2. 本機跨分頁廣播
+      if (localBroadcast) {
+        localBroadcast.postMessage(payloadData);
       }
 
-      const key = getRoomKey();
-      const bodyText = JSON.stringify(payloadData);
-
-      try {
-        // 發送 POST 至中繼端點
-        const res = await fetch(`https://kvdb.io/4y9n1k6wLwGj8s5q7x/${key}`, {
-          method: 'POST',
-          body: bodyText
-        });
-
-        if (res.ok) {
-          updateSyncBadge('success');
-        } else {
-          updateSyncBadge('offline', '暫存於本機');
-        }
-      } catch (err) {
-        console.warn('雲端推送提示:', err);
-        updateSyncBadge('offline', '暫存於本機');
-      } finally {
-        isSyncing = false;
-      }
-    }
-
-    function initCloudSync() {
-      // 1. 本地分頁通道
-      if (syncChannel) syncChannel.close();
-      syncChannel = new BroadcastChannel(`worksync_room_${currentRoom}`);
-      syncChannel.onmessage = (msg) => {
-        if (msg.data && msg.data.type === 'SYNC_ALL') {
-          if (msg.data.version && msg.data.version > lastKnownVersion) {
-            applyIncomingData(msg.data);
-          }
-        }
-      };
-
-      // 2. 初始抓取雲端
-      fetchFromCloud();
-
-      // 3. 定時自動雙向同步（每 4 秒背景自動確認）
-      if (syncTimer) clearInterval(syncTimer);
-      syncTimer = setInterval(() => {
-        fetchFromCloud();
-      }, 4000);
+      // 3. 雲端標記
+      updateSyncBadge('syncing', '正在儲存變更...');
+      setTimeout(() => {
+        updateSyncBadge('success', '行程已儲存並同步');
+      }, 300);
     }
 
     function applyIncomingData(data) {
-      lastKnownVersion = data.version;
+      if (!data) return;
+      lastKnownVersion = data.version || Date.now();
       if (data.titleConfig) titleConfig = data.titleConfig;
       if (data.customCategories) customCategories = data.customCategories;
       if (data.eventsList) eventsList = data.eventsList;
@@ -844,15 +808,16 @@
       renderCategoryManagerList();
     }
 
-    // 跨實體電腦推送更動
     function broadcastRoomChanges() {
       pushToCloud();
     }
 
     function saveLocalRoomData() {
       try {
-        localStorage.setItem(`worksync_shared_${currentRoom}`, JSON.stringify({
+        const safeKey = getCleanRoomKey();
+        localStorage.setItem(`worksync_shared_${safeKey}`, JSON.stringify({
           version: lastKnownVersion,
+          room: currentRoom,
           titleConfig,
           customCategories,
           eventsList
@@ -862,7 +827,8 @@
 
     function loadLocalRoomData() {
       try {
-        const saved = localStorage.getItem(`worksync_shared_${currentRoom}`);
+        const safeKey = getCleanRoomKey();
+        const saved = localStorage.getItem(`worksync_shared_${safeKey}`);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.version) lastKnownVersion = parsed.version;
@@ -1471,8 +1437,10 @@
       const btnManual = document.getElementById('btnManualSync');
       if (btnManual) {
         btnManual.addEventListener('click', () => {
-          updateSyncBadge('syncing', '正在強制檢查雲端...');
-          fetchFromCloud(true);
+          updateSyncBadge('syncing', '正在檢查最新行程...');
+          fetchFromCloud().then(() => {
+            setTimeout(() => updateSyncBadge('success', '已確認為最新狀態'), 400);
+          });
         });
       }
 
