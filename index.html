@@ -337,9 +337,39 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label for="eventTimeInput" class="block text-xs font-medium text-slate-600 mb-1">時間 (可選)</label>
-            <input type="time" id="eventTimeInput" 
-                   class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+            <div class="flex items-center justify-between mb-1">
+              <label for="eventTimeInput" class="block text-xs font-medium text-slate-600">時間 (可選)</label>
+              <span class="text-[10px] text-slate-400">可自填或下拉</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="eventTimeInput" placeholder="例如 09:30" 
+                     class="w-24 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+              <select id="eventTimeSelect" class="flex-1 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition cursor-pointer text-slate-700">
+                <option value="">選時段...</option>
+                <option value="全天">全天</option>
+                <option value="07:30">07:30 早自習</option>
+                <option value="08:00">08:00</option>
+                <option value="08:30">08:30</option>
+                <option value="09:00">09:00</option>
+                <option value="09:30">09:30</option>
+                <option value="10:00">10:00</option>
+                <option value="10:30">10:30</option>
+                <option value="11:00">11:00</option>
+                <option value="11:30">11:30</option>
+                <option value="12:00">12:00 午休</option>
+                <option value="13:00">13:00</option>
+                <option value="13:30">13:30</option>
+                <option value="14:00">14:00</option>
+                <option value="14:30">14:30</option>
+                <option value="15:00">15:00</option>
+                <option value="15:30">15:30</option>
+                <option value="16:00">16:00 放學</option>
+                <option value="16:30">16:30</option>
+                <option value="17:00">17:00</option>
+                <option value="18:00">18:00</option>
+                <option value="19:00">19:00 晚間</option>
+              </select>
+            </div>
           </div>
           <div>
             <div class="flex items-center justify-between mb-1">
@@ -768,10 +798,12 @@
             const parsed = JSON.parse(event.data);
             if (parsed && parsed.message) {
               const payload = JSON.parse(parsed.message);
-              if (payload && payload.timestamp && payload.timestamp > lastLocalTimestamp) {
-                lastLocalTimestamp = payload.timestamp;
-                applyIncomingData(payload.data);
-                updateSyncBadge('success', '已即時接收最新行程');
+              if (payload && payload.room === currentRoom && payload.data) {
+                if (payload.timestamp > lastLocalTimestamp) {
+                  lastLocalTimestamp = payload.timestamp;
+                  applyIncomingData(payload.data);
+                  updateSyncBadge('success', '已即時接收最新行程');
+                }
               }
             }
           } catch (e) {}
@@ -785,10 +817,10 @@
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // 備援定時檢查（每 6 秒靜默拉取最新，確保任何一台剛開機都能抓到最新行程）
+      // 備援定時檢查（每 5 秒靜默拉取最新，確保任何一台剛開機都能抓到最新行程）
       syncInterval = setInterval(() => {
         pullLatestFromCloud();
-      }, 6000);
+      }, 5000);
     }
 
     // 發送即時更新推播 (Mac ⇋ 學校 Windows 毫秒級互傳)
@@ -810,7 +842,6 @@
       };
 
       try {
-        // 同時以高速 POST 發布到即時推播頻道
         await fetch(`https://ntfy.sh/${channel}`, {
           method: 'POST',
           body: JSON.stringify(payload),
@@ -821,7 +852,6 @@
         });
         updateSyncBadge('success', '已即時同步到所有裝置');
       } catch (e) {
-        // 萬一網路離線，本機依然完整保存
         updateSyncBadge('offline', '已保存在本機快取');
       }
     }
@@ -840,11 +870,13 @@
                 const item = JSON.parse(lines[i]);
                 if (item && item.message) {
                   const payload = JSON.parse(item.message);
-                  if (payload && payload.timestamp && payload.timestamp > lastLocalTimestamp) {
-                    lastLocalTimestamp = payload.timestamp;
-                    applyIncomingData(payload.data);
-                    updateSyncBadge('success', '雲端雙向連線正常');
-                    break;
+                  if (payload && payload.room === currentRoom && payload.data) {
+                    if (payload.timestamp > lastLocalTimestamp) {
+                      lastLocalTimestamp = payload.timestamp;
+                      applyIncomingData(payload.data);
+                      updateSyncBadge('success', '雲端雙向連線正常');
+                      break;
+                    }
                   }
                 }
               } catch (err) {}
@@ -1331,6 +1363,7 @@
       const eventDateInput = document.getElementById('eventDate');
       const titleInput = document.getElementById('eventTitleInput');
       const timeInput = document.getElementById('eventTimeInput');
+      const timeSelect = document.getElementById('eventTimeSelect');
       const notesInput = document.getElementById('eventNotesInput');
       const deleteBtn = document.getElementById('btnDeleteEvent');
       const eventCatSelect = document.getElementById('eventCategorySelect');
@@ -1339,7 +1372,11 @@
       eventDateInput.value = eventData.date;
       dateDisplay.textContent = eventData.date;
       titleInput.value = eventData.title;
-      timeInput.value = eventData.time;
+      timeInput.value = eventData.time || '';
+      if (timeSelect) {
+        // 若時間剛好符合選單的值則切換選中，否則預設為空白
+        timeSelect.value = Array.from(timeSelect.options).some(opt => opt.value === eventData.time) ? eventData.time : '';
+      }
       notesInput.value = eventData.notes;
 
       if (eventData.categoryId) {
@@ -1705,6 +1742,25 @@
       document.getElementById('filterCategory').addEventListener('change', () => {
         renderCalendar();
       });
+
+      // 時間下拉選單連動文字輸入框
+      const eventTimeSelect = document.getElementById('eventTimeSelect');
+      const eventTimeInput = document.getElementById('eventTimeInput');
+      if (eventTimeSelect && eventTimeInput) {
+        eventTimeSelect.addEventListener('change', (e) => {
+          if (e.target.value) {
+            eventTimeInput.value = e.target.value;
+          }
+        });
+        eventTimeInput.addEventListener('input', (e) => {
+          const val = e.target.value.trim();
+          if (Array.from(eventTimeSelect.options).some(opt => opt.value === val)) {
+            eventTimeSelect.value = val;
+          } else {
+            eventTimeSelect.value = '';
+          }
+        });
+      }
 
       // 行程表單提交與刪除
       document.getElementById('eventForm').addEventListener('submit', handleSaveEvent);
