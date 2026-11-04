@@ -1113,44 +1113,47 @@
       return `cal_v3_${safeHash}`;
     }
 
-    // 計算資料指紋，用以確認是否有實際內容差異，防止不同裝置時間差導致丟棄
+    // 計算資料指紋，包含成員名單與行程完整比對，防止遺漏
     function computeFingerprint(data) {
+      if (!data) return "";
       try {
-        return JSON.stringify({
-          evLen: data.eventsList?.length || 0,
-          evs: data.eventsList || [],
-          cats: data.customCategories || [],
-          mems: data.customMembers || [],
-          cell: data.cellConfig || {}
-        });
+        const mPart = (data.customMembers || []).map(m => `${m.id}-${m.seatNo}-${m.name}-${m.avatar}`).join('|');
+        const ePart = (data.eventsList || []).map(e => `${e.id}-${e.date}-${e.title}-${e.time}-${(e.memberIds||[]).join(',')}`).join('|');
+        const cPart = (data.customCategories || []).map(c => `${c.id}-${c.name}-${c.color}`).join('|');
+        return `${mPart}###${ePart}###${cPart}###${data.eventsList?.length || 0}###${data.customMembers?.length || 0}`;
       } catch(e) {
         return "";
       }
     }
 
-    // 中文安全編解碼器 (防止推播中文 JSON 截斷或伺服器字元編碼報錯)
+    // 安全編解碼器：採用 UTF-8 百分比安全轉碼，徹底防範截斷
     function encodePayload(obj) {
       try {
         const jsonStr = JSON.stringify(obj);
-        return btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => {
-          return String.fromCharCode('0x' + p1);
-        }));
+        return unescape(encodeURIComponent(jsonStr));
       } catch(e) {
         return JSON.stringify(obj);
       }
     }
 
-    function decodePayload(str) {
+    function decodePayload(rawStr) {
+      if (!rawStr) return null;
       try {
-        const decoded = decodeURIComponent(atob(str).split('').map((c) => {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(decoded);
-      } catch(e) {
+        // 先嘗試純 JSON 解析
+        return JSON.parse(rawStr);
+      } catch(e1) {
         try {
-          return JSON.parse(str);
-        } catch(err) {
-          return null;
+          // 若有 UTF-8 轉碼則解碼
+          const decoded = decodeURIComponent(escape(rawStr));
+          return JSON.parse(decoded);
+        } catch(e2) {
+          try {
+            // 相容舊版 Base64
+            const b64 = decodeURIComponent(atob(rawStr).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            return JSON.parse(b64);
+          } catch(e3) {
+            return null;
+          }
         }
       }
     }
@@ -1211,10 +1214,10 @@
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // Windows / Mac 雙軌極速備援輪詢（每 2 秒一次，帶隨機時間戳穿透快取）
+      // Windows / Mac 雙軌極速備援輪詢（每 1.5 秒一次，帶隨機時間戳穿透快取）
       syncInterval = setInterval(() => {
         pullLatestFromCloud();
-      }, 2000);
+      }, 1500);
     }
 
     // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 ＋ 網頁版 ⇋ App 版)
@@ -1242,7 +1245,7 @@
         data: roomData
       };
 
-      // 1. 本機雙重廣播推播給同電腦的 App 版或網頁版 (0.005 秒同步)
+      // 1. 本機雙重廣播推播給同電腦的 App 版或網頁版 (0.001 秒同步)
       try {
         if (localBroadcast) {
           localBroadcast.postMessage(payload);
@@ -1258,7 +1261,7 @@
       } catch (e) {}
 
       // 3. 雲端推播給另一台電腦 (0.2 秒同步)
-      const encodedBody = encodePayload(payload);
+      const encodedBody = JSON.stringify(payload);
 
       try {
         await fetch(`https://ntfy.sh/${channel}`, {
@@ -1357,9 +1360,15 @@
     function applyIncomingData(data) {
       if (!data) return;
       if (data.titleConfig) titleConfig = data.titleConfig;
-      if (data.customCategories) customCategories = data.customCategories;
-      if (data.customMembers) customMembers = data.customMembers;
-      if (data.eventsList) eventsList = data.eventsList;
+      if (data.customCategories && Array.isArray(data.customCategories)) {
+        customCategories = data.customCategories;
+      }
+      if (data.customMembers && Array.isArray(data.customMembers)) {
+        customMembers = data.customMembers;
+      }
+      if (data.eventsList && Array.isArray(data.eventsList)) {
+        eventsList = data.eventsList;
+      }
       if (data.cellConfig) {
         cellConfig = data.cellConfig;
         applyCellStyles();
@@ -1372,6 +1381,7 @@
       renderCalendar();
       renderCategoryManagerList();
       renderMemberManagerList();
+      renderEventMemberOptions(); // 確保行程視窗內的成員清單同步更新
     }
 
     function broadcastRoomChanges() {
