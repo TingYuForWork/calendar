@@ -1043,11 +1043,40 @@
 
     // ==========================================
     // 極速雙向即時雲端同步引擎 (免金鑰、0.3秒握手、毫秒級推播)
+    // ＋ 本機跨視窗 (網頁版 ⇋ App 應用程式版) 即時通道
     // ==========================================
     let eventSource = null;
     let syncInterval = null;
+    let localBroadcast = null;
     let lastLocalTimestamp = 0;
     let lastDataFingerprint = "";
+
+    // 建立跨視窗（網頁版 ⇋ App 版）即時廣播頻道
+    function initLocalBroadcastChannel() {
+      if (!currentRoom) return;
+      try {
+        if (localBroadcast) {
+          localBroadcast.close();
+        }
+        const chName = `local_cal_ch_${currentRoom}`;
+        if (typeof BroadcastChannel !== 'undefined') {
+          localBroadcast = new BroadcastChannel(chName);
+          localBroadcast.onmessage = (event) => {
+            if (event.data && event.data.room === currentRoom && event.data.data) {
+              const incomingFingerprint = computeFingerprint(event.data.data);
+              if (incomingFingerprint !== lastDataFingerprint) {
+                lastLocalTimestamp = Math.max(lastLocalTimestamp, event.data.timestamp || Date.now());
+                lastDataFingerprint = incomingFingerprint;
+                applyIncomingData(event.data.data);
+                updateSyncBadge('success', '本機視窗已同步連動');
+              }
+            }
+          };
+        }
+      } catch (err) {
+        console.warn("BroadcastChannel error:", err);
+      }
+    }
 
     // 將任何語言的房間代碼安全編碼為全球唯一頻道名稱 (支援中文、英文、數字，保證跨裝置一致)
     function getCleanChannelName(roomStr) {
@@ -1108,6 +1137,9 @@
       const channel = getCleanChannelName(currentRoom);
       updateSyncBadge('syncing', '正在建立雙向即時連線...');
 
+      // 初始化同機（網頁版 ⇋ App版）通訊
+      initLocalBroadcastChannel();
+
       // 關閉既有長連線
       if (eventSource) {
         try { eventSource.close(); } catch(e){}
@@ -1162,7 +1194,7 @@
       }, 2000);
     }
 
-    // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 毫秒級互傳)
+    // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 ＋ 網頁版 ⇋ App 版)
     async function pushToCloud() {
       if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
@@ -1186,6 +1218,14 @@
         data: roomData
       };
 
+      // 1. 本機即時推播給同電腦的 App 版或網頁版 (0.01 秒同步)
+      try {
+        if (localBroadcast) {
+          localBroadcast.postMessage(payload);
+        }
+      } catch (err) {}
+
+      // 2. 雲端推播給另一台電腦 (0.2 秒同步)
       const encodedBody = encodePayload(payload);
 
       try {
@@ -1206,6 +1246,20 @@
     // 索取最新雲端行程（穿透 Windows 與 Mac 瀏覽器快取）
     async function pullLatestFromCloud() {
       if (!currentRoom) return;
+
+      // 先檢查本機 localStorage 是否有其他視窗剛寫入的更新
+      try {
+        const localSaved = localStorage.getItem(`worksync_shared_${currentRoom}`);
+        if (localSaved) {
+          const parsed = JSON.parse(localSaved);
+          const localFingerprint = computeFingerprint(parsed);
+          if (localFingerprint && localFingerprint !== lastDataFingerprint) {
+            lastDataFingerprint = localFingerprint;
+            applyIncomingData(parsed);
+          }
+        }
+      } catch (e) {}
+
       const channel = getCleanChannelName(currentRoom);
       try {
         const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m&_t=${Date.now()}`, { 
@@ -2467,31 +2521,53 @@
           setTimeout(() => inputNew.focus(), 50);
         });
 
+        // 提交加入已知房間表單
         formJoin.addEventListener('submit', (e) => {
           e.preventDefault();
-          const target = inputJoin.value.trim();
-          if (target) {
+          const roomToJoin = inputJoin.value.trim();
+          if (roomToJoin) {
             modal.classList.add('hidden');
-            switchRoom(target, false);
+            switchRoom(roomToJoin, false);
           }
         });
 
+        // 提交建立全新獨立房間表單
         formCreate.addEventListener('submit', (e) => {
           e.preventDefault();
-          const target = inputNew.value.trim();
-          if (target) {
+          const roomToCreate = inputNew.value.trim();
+          if (roomToCreate) {
             modal.classList.add('hidden');
-            switchRoom(target, true);
+            switchRoom(roomToCreate, true);
           }
         });
-
-        setTimeout(() => inputJoin.focus(), 50);
       }
 
-      // 當視窗從背景切回前台（例如打開休眠的 Mac 或筆電）時，自動重新對齊連線
+      // 當視窗從背景切回前台（例如打開休眠的 Mac 或點進 App 視窗）時，自動重新對齊連線
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && currentRoom) {
           pullLatestFromCloud();
+        }
+      });
+
+      // 監聽視窗 Focus 事件：當滑鼠點入 App 視窗或網頁時，立刻瞬間拉取最新行程
+      window.addEventListener('focus', () => {
+        if (currentRoom) {
+          pullLatestFromCloud();
+        }
+      });
+
+      // 原生監聽跨視窗 storage 變更（支援網頁版與 App 視窗互通）
+      window.addEventListener('storage', (e) => {
+        if (e.key === `worksync_shared_${currentRoom}` && e.newValue) {
+          try {
+            const incoming = JSON.parse(e.newValue);
+            const incomingFingerprint = computeFingerprint(incoming);
+            if (incomingFingerprint !== lastDataFingerprint) {
+              lastDataFingerprint = incomingFingerprint;
+              applyIncomingData(incoming);
+              updateSyncBadge('success', '本機雙視窗已即時對齊');
+            }
+          } catch (err) {}
         }
       });
 
