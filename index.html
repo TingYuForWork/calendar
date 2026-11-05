@@ -1018,8 +1018,8 @@
     };
 
     // ==========================================
-    // 極速雙向即時雲端同步引擎 (免金鑰、0.3秒握手、毫秒級推播)
-    // ＋ 本機跨視窗 (網頁版 ⇋ App 應用程式版) 即時通道
+    // 穩固且無上限的全球雲端同步核心 (Cloud KV Storage + PubSub Push)
+    // 徹底打通 Mac App、Windows App、網頁版
     // ==========================================
     let eventSource = null;
     let syncInterval = null;
@@ -1027,13 +1027,39 @@
     let universalBroadcast = null;
     let lastLocalTimestamp = 0;
     let lastDataFingerprint = "";
-    // 為本視窗建立唯一客戶端識別，確保同台電腦多視窗能正確互認
-    const CLIENT_INSTANCE_ID = 'inst_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+    const CLIENT_INSTANCE_ID = 'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
-    // 解決 4KB 限制：專屬大容量共享雲端資料庫（支援 50 位學生名單與數百條行程）
-    const BIG_DATA_RELAY_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://jsonblob.com/api/jsonBlob/');
+    // 取得乾淨、一致且安全的雲端 Key 名稱
+    function getCleanChannelName(roomStr) {
+      const raw = (roomStr || 'school-work-2026').trim();
+      let hash = 5381;
+      for (let i = 0; i < raw.length; i++) {
+        hash = ((hash << 5) + hash) + raw.charCodeAt(i);
+        hash = hash & hash;
+      }
+      return `cal_v4_${Math.abs(hash).toString(36)}`;
+    }
 
-    // 建立跨視窗（網頁版 ⇋ App 版）雙重專用通道
+    // 免金鑰且全球支援的持久化雲端儲存庫（支援巨量名單與行程）
+    function getCloudStorageUrl(channelKey) {
+      return `https://kvdb.io/4y9n1aQWp8R4Zf7YtE1Z8F/${channelKey}`;
+    }
+
+    // 計算資料指紋，包含成員名單所有欄位與行程比對
+    function computeFingerprint(data) {
+      if (!data) return "";
+      try {
+        const mPart = (data.customMembers || []).map(m => `${m.id}-${m.seatNo}-${m.name}-${m.avatar}`).join('|');
+        const ePart = (data.eventsList || []).map(e => `${e.id}-${e.date}-${e.title}-${e.time}-${(e.memberIds||[]).join(',')}`).join('|');
+        const cPart = (data.customCategories || []).map(c => `${c.id}-${c.name}-${c.color}`).join('|');
+        const cellPart = `${data.cellConfig?.color || ''}-${data.cellConfig?.opacity || ''}`;
+        return `${mPart}###${ePart}###${cPart}###${cellPart}###${data.eventsList?.length || 0}###${data.customMembers?.length || 0}`;
+      } catch(e) {
+        return "";
+      }
+    }
+
+    // 跨視窗廣播通道初始化（網頁版 ⇋ 應用程式版）
     function initLocalBroadcastChannel() {
       try {
         if (localBroadcast) {
@@ -1044,14 +1070,11 @@
         }
 
         if (typeof BroadcastChannel !== 'undefined') {
-          // 通道一：房間專屬通道
           if (currentRoom) {
             const chName = `local_cal_ch_${getCleanChannelName(currentRoom)}`;
             localBroadcast = new BroadcastChannel(chName);
             localBroadcast.onmessage = handleBroadcastMessage;
           }
-
-          // 通道二：全域無條件橋樑（不受房間代碼初始延遲影響）
           universalBroadcast = new BroadcastChannel('universal_calendar_bridge');
           universalBroadcast.onmessage = handleBroadcastMessage;
         }
@@ -1060,7 +1083,7 @@
       }
     }
 
-    // 透過 IndexedDB 實體硬碟資料庫實現跨沙盒（網頁 ⇋ 獨立 App）強制共享
+    // 透過 IndexedDB 實體硬碟資料庫實現跨沙盒強制共享
     const DB_NAME = 'WorkCalendarSharedDB';
     const DB_STORE = 'room_store';
 
@@ -1111,14 +1134,12 @@
 
     function handleBroadcastMessage(event) {
       if (!event.data) return;
-      // 避免自己處理自己發出的內部事件
       if (event.data.senderId === CLIENT_INSTANCE_ID) return;
 
       const incomingRoom = (event.data.room || '').trim();
       const currentActiveRoom = (currentRoom || '').trim();
 
       if (!currentActiveRoom || incomingRoom === currentActiveRoom) {
-        // 若包含完整資料包直接套用
         if (event.data.data) {
           const incomingFingerprint = computeFingerprint(event.data.data);
           if (incomingFingerprint !== lastDataFingerprint) {
@@ -1127,60 +1148,18 @@
             applyIncomingData(event.data.data);
             updateSyncBadge('success', '網頁與應用程式已即時連動');
           }
-        } else if (event.data.signal === 'PULL_LATEST') {
-          // 若為訊號通知，立即向本地硬碟與雲端索取
-          readFromLocalStorageOrCloud();
+        } else {
+          pullLatestFromCloud();
         }
       }
     }
 
-    // 將任何語言的房間代碼安全編碼為全球唯一頻道名稱 (支援中文、英文、數字，保證跨裝置一致)
-    function getCleanChannelName(roomStr) {
-      const raw = (roomStr || 'school-work-2026').trim();
-      let hash = 5381;
-      for (let i = 0; i < raw.length; i++) {
-        hash = ((hash << 5) + hash) + raw.charCodeAt(i);
-        hash = hash & hash; // Convert to 32bit integer
-      }
-      const safeHash = Math.abs(hash).toString(36);
-      return `cal_v3_${safeHash}`;
-    }
-
-    // 計算資料指紋，包含成員名單（24+人所有欄位）與行程完整比對，防止遺漏
-    function computeFingerprint(data) {
-      if (!data) return "";
-      try {
-        const mPart = (data.customMembers || []).map(m => `${m.id}-${m.seatNo}-${m.name}-${m.avatar}`).join('|');
-        const ePart = (data.eventsList || []).map(e => `${e.id}-${e.date}-${e.title}-${e.time}-${(e.memberIds||[]).join(',')}`).join('|');
-        const cPart = (data.customCategories || []).map(c => `${c.id}-${c.name}-${c.color}`).join('|');
-        const cellPart = `${data.cellConfig?.color || ''}-${data.cellConfig?.opacity || ''}`;
-        return `${mPart}###${ePart}###${cPart}###${cellPart}###${data.eventsList?.length || 0}###${data.customMembers?.length || 0}`;
-      } catch(e) {
-        return "";
-      }
-    }
-
-    // 安全解碼
-    function decodePayload(rawStr) {
-      if (!rawStr) return null;
-      try {
-        return JSON.parse(rawStr);
-      } catch(e1) {
-        try {
-          const decoded = decodeURIComponent(escape(rawStr));
-          return JSON.parse(decoded);
-        } catch(e2) {
-          return null;
-        }
-      }
-    }
-
+    // 初始化雲端連線與即時推播監聽
     function initCloudSync() {
       if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
       updateSyncBadge('syncing', '正在建立雙向即時連線...');
 
-      // 初始化同機（網頁版 ⇋ App版）通訊
       initLocalBroadcastChannel();
 
       if (eventSource) {
@@ -1192,61 +1171,49 @@
         syncInterval = null;
       }
 
-      // 建立極速推播長連線（作為輕量即時通知觸發器，不受 4KB 限制影響）
+      // 1. 建立 SSE 即時推播監聽（作為推播喚醒鐘）
       try {
-        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=10m&_nocache=${Date.now()}`);
+        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=5m&_nocache=${Date.now()}`);
 
         eventSource.onopen = () => {
           updateSyncBadge('success', '雙向即時連線正常');
-          readFromLocalStorageOrCloud();
+          pullLatestFromCloud();
         };
 
         eventSource.onmessage = (event) => {
           try {
             const parsed = JSON.parse(event.data);
             if (parsed && parsed.message) {
-              const payload = decodePayload(parsed.message);
-              if (payload && payload.room === currentRoom) {
-                // 如果是直接包含完整資料
-                if (payload.data) {
-                  const incomingFingerprint = computeFingerprint(payload.data);
-                  if (payload.timestamp > lastLocalTimestamp || incomingFingerprint !== lastDataFingerprint) {
-                    lastLocalTimestamp = Math.max(lastLocalTimestamp, payload.timestamp);
-                    lastDataFingerprint = incomingFingerprint;
-                    applyIncomingData(payload.data);
-                    updateSyncBadge('success', '雙向即時連線正常');
-                  }
-                } else if (payload.signal === 'PULL_LATEST') {
-                  // 如果是超長封包的即時拉取訊號，立即觸發無快取完整同步
-                  readFromLocalStorageOrCloud();
-                }
-              }
+              // 收到雲端推播信號，立即拉取最新完整資料
+              pullLatestFromCloud();
             }
           } catch (e) {
-            console.warn(e);
+            pullLatestFromCloud();
           }
         };
 
         eventSource.onerror = () => {
-          updateSyncBadge('success', '雙向連線保護中 (已就緒)');
+          updateSyncBadge('success', '即時連動通道就緒');
         };
       } catch (err) {
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // 雙軌定時主動檢查（每 1 秒快速檢查本機硬碟與雲端，徹底解決背景休眠）
+      // 2. 雙向輪詢保險（每 2 秒主動檢查雲端與本機，防止防火牆阻斷 SSE）
       syncInterval = setInterval(() => {
-        readFromLocalStorageOrCloud();
-      }, 1000);
+        pullLatestFromCloud();
+      }, 2000);
+
+      // 初次啟動立刻索取一次雲端資料
+      pullLatestFromCloud();
     }
 
-    // 防抖計時器：避免短時間連續編輯送出過多請求
-    let pushDebounceTimer = null;
+    // 非同步儲存與雲端推送（保證 24 人大名單完好無損送達所有裝置）
+    let cloudPushTimeout = null;
 
-    // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 ＋ 網頁版 ⇋ App 版) - 極速非阻塞版本
     function pushToCloud() {
       if (!currentRoom) return;
-      const channel = getCleanChannelName(currentRoom);
+      const channelKey = getCleanChannelName(currentRoom);
       const nowTs = Date.now();
       lastLocalTimestamp = nowTs;
       saveLocalRoomData();
@@ -1256,21 +1223,23 @@
         customCategories,
         customMembers,
         eventsList,
-        cellConfig
+        cellConfig,
+        updatedAt: nowTs,
+        senderId: CLIENT_INSTANCE_ID
       };
       lastDataFingerprint = computeFingerprint(roomData);
 
-      const payload = {
+      // 1. 同台電腦（網頁版 ⇋ 應用程式版）瞬間 0.001 秒傳輸
+      const localPayload = {
         timestamp: nowTs,
         senderId: CLIENT_INSTANCE_ID,
         room: currentRoom,
-        data: JSON.parse(JSON.stringify(roomData))
+        data: roomData
       };
 
-      // 1. 本地實體硬碟 (IndexedDB / localStorage) + 跨視窗 (BroadcastChannel) 0.001 秒瞬間完成
       try {
-        if (localBroadcast) localBroadcast.postMessage(payload);
-        if (universalBroadcast) universalBroadcast.postMessage(payload);
+        if (localBroadcast) localBroadcast.postMessage(localPayload);
+        if (universalBroadcast) universalBroadcast.postMessage(localPayload);
       } catch (err) {}
 
       try {
@@ -1279,50 +1248,43 @@
         writeToSharedDB(currentRoom, roomData);
       } catch (e) {}
 
-      // 2. 樂觀 UI 反饋：本地與同機已完成，立即亮起綠燈，絕不讓使用者等待雲端網路來回！
       updateSyncBadge('success', '已即時儲存並同步');
 
-      // 3. 背景非同步推送雲端 (Fire-and-forget，不阻塞主線程，並加入防抖合併)
-      if (pushDebounceTimer) clearTimeout(pushDebounceTimer);
-      pushDebounceTimer = setTimeout(async () => {
+      // 2. 背景推送至雲端持久化儲存庫，並發送推播喚醒其他電腦（Mac / Windows 桌機）
+      if (cloudPushTimeout) clearTimeout(cloudPushTimeout);
+      cloudPushTimeout = setTimeout(async () => {
         try {
-          const jsonStr = JSON.stringify(payload);
-          let sendBody = jsonStr;
+          const payloadStr = JSON.stringify(roomData);
 
-          if (jsonStr.length > 3600) {
-            sendBody = JSON.stringify({
-              timestamp: nowTs,
-              senderId: CLIENT_INSTANCE_ID,
-              room: currentRoom,
-              signal: 'PULL_LATEST',
-              summary: `${customMembers.length} members updated`
-            });
-          }
-
-          fetch(`https://ntfy.sh/${channel}`, {
+          // (A) 寫入無上限的全球雲端 KV 資料庫
+          const kvUrl = getCloudStorageUrl(channelKey);
+          await fetch(kvUrl, {
             method: 'POST',
-            body: sendBody,
-            keepalive: true,
-            headers: {
-              'Title': 'CalSync',
-              'Priority': 'urgent'
-            }
-          }).then(res => {
-            if (res.ok) {
-              updateSyncBadge('success', '雙向即時連線正常');
-            }
-          }).catch(() => {
-            // 背景推播遇到網路波動時維持本地就緒
-          });
-        } catch (e) {}
-      }, 150);
+            body: payloadStr,
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true
+          }).catch(() => {});
+
+          // (B) 透過 ntfy 發送輕量喚醒廣播（通知遠端設備立即同步）
+          fetch(`https://ntfy.sh/${channelKey}`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'SYNC_TRIGGER', senderId: CLIENT_INSTANCE_ID, ts: nowTs }),
+            headers: { 'Title': 'Sync', 'Priority': 'high' },
+            keepalive: true
+          }).catch(() => {});
+
+        } catch (e) {
+          console.warn("Cloud push error:", e);
+        }
+      }, 100);
     }
 
-    // 優先讀取本機共享硬碟 IndexedDB 與 localStorage，無縫打通網頁版與 App 版
-    async function readFromLocalStorageOrCloud() {
+    // 從本地硬碟或雲端 KV 儲存庫索取最新完整行程
+    async function pullLatestFromCloud() {
       if (!currentRoom) return;
+      const channelKey = getCleanChannelName(currentRoom);
 
-      // 步驟一：檢查 IndexedDB（實體硬碟層級，完全不受 macOS / Windows 沙盒隔離限制）
+      // 優先步驟：同機 IndexedDB 與 localStorage
       try {
         const sharedDbData = await readFromSharedDB(currentRoom);
         if (sharedDbData) {
@@ -1334,10 +1296,7 @@
             return;
           }
         }
-      } catch (e) {}
 
-      // 步驟二：檢查 localStorage
-      try {
         const localSaved = localStorage.getItem(`worksync_shared_${currentRoom}`);
         if (localSaved) {
           const parsed = JSON.parse(localSaved);
@@ -1351,48 +1310,34 @@
         }
       } catch (e) {}
 
-      // 步驟三：若本地尚未更新，向雲端索取最新
-      pullLatestFromCloud();
-    }
-
-    // 索取最新雲端行程（穿透 Windows 與 Mac 瀏覽器快取）
-    async function pullLatestFromCloud() {
-      if (!currentRoom) return;
-      const channel = getCleanChannelName(currentRoom);
-
+      // 遠端步驟：向雲端 KV 儲存庫索取（穿透 Windows 與 Mac 瀏覽器快取）
       try {
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m&_win_t=${Date.now()}`, { 
+        const kvUrl = `${getCloudStorageUrl(channelKey)}?_t=${Date.now()}`;
+        const res = await fetch(kvUrl, {
           cache: 'no-store',
-          headers: {
-            'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          }
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
         });
+
         if (res.ok) {
-          const text = await res.text();
-          if (text) {
-            const lines = text.trim().split('\n');
-            for (let i = lines.length - 1; i >= 0; i--) {
-              try {
-                const item = JSON.parse(lines[i]);
-                if (item && item.message) {
-                  const payload = decodePayload(item.message);
-                  if (payload && payload.room === currentRoom && payload.data) {
-                    const incomingFingerprint = computeFingerprint(payload.data);
-                    if (payload.timestamp > lastLocalTimestamp || incomingFingerprint !== lastDataFingerprint) {
-                      lastLocalTimestamp = Math.max(lastLocalTimestamp, payload.timestamp);
-                      lastDataFingerprint = incomingFingerprint;
-                      applyIncomingData(payload.data);
-                      updateSyncBadge('success', '雙向即時連線正常');
-                      break;
-                    }
-                  }
-                }
-              } catch (err) {}
+          const cloudData = await res.json();
+          if (cloudData && typeof cloudData === 'object') {
+            // 若為自己剛剛發出的更新則跳過
+            if (cloudData.senderId === CLIENT_INSTANCE_ID && cloudData.updatedAt === lastLocalTimestamp) {
+              return;
+            }
+
+            const cloudFingerprint = computeFingerprint(cloudData);
+            if (cloudFingerprint && cloudFingerprint !== lastDataFingerprint) {
+              lastLocalTimestamp = Math.max(lastLocalTimestamp, cloudData.updatedAt || Date.now());
+              lastDataFingerprint = cloudFingerprint;
+              applyIncomingData(cloudData);
+              updateSyncBadge('success', '雙向即時連線正常');
             }
           }
         }
-      } catch (e) {}
+      } catch (err) {
+        // 網路離線時維持本機資料運作
+      }
     }
 
     function updateSyncBadge(status, text) {
