@@ -128,34 +128,10 @@
           <i class="ph ph-user text-slate-400 absolute right-2 top-2 pointer-events-none text-xs"></i>
         </div>
 
-        <!-- 成員名單管理 -->
-        <button id="btnManageMembers" class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 shadow-2xs" title="編輯人員與學生名單（座號、姓名、頭像）">
-          <i class="ph ph-users-three text-indigo-600"></i>
-          <span>成員名單</span>
-        </button>
-
-        <!-- 資料備份與匯出匯入 -->
-        <button id="btnOpenBackupModal" class="px-2 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition flex items-center gap-1 shadow-2xs" title="匯出/匯入備份（學生名單與行程）">
-          <i class="ph ph-floppy-disk text-slate-600"></i>
-          <span class="hidden sm:inline">備份</span>
-        </button>
-
-        <!-- 自訂標籤 -->
-        <button id="btnManageCategories" class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 shadow-2xs" title="自訂標籤分類與色彩">
-          <i class="ph ph-palette text-indigo-600"></i>
-          <span>自訂標籤</span>
-        </button>
-
-        <!-- 自訂字體與大小 -->
-        <button id="btnOpenFontModal" class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 shadow-2xs" title="調整字體與文字大小">
-          <i class="ph ph-text-t text-emerald-600"></i>
-          <span>字體與大小</span>
-        </button>
-
-        <!-- 自訂背景 -->
-        <button id="btnOpenBgModal" class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 shadow-2xs" title="更換背景顏色或自訂圖片">
-          <i class="ph ph-image text-amber-600"></i>
-          <span>自訂背景</span>
+        <!-- 濃縮為單一「設定」按鈕 -->
+        <button id="btnOpenMasterSettings" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1.5 shadow-2xs" title="開啟設定中心（成員名單、標籤、外觀、字體、備份）">
+          <i class="ph ph-gear text-indigo-600 text-base"></i>
+          <span>設定</span>
         </button>
 
         <!-- 團隊共編房間下拉選單與新增房間按鈕 -->
@@ -473,421 +449,368 @@
     </div>
   </div>
 
-  <!-- 3. 自訂標籤管理 Modal -->
-  <div id="categoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden p-6 space-y-4">
-      <div class="flex items-center justify-between border-b pb-3 border-slate-100">
-        <div class="flex items-center gap-2">
-          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-            <i class="ph ph-palette text-xl"></i>
-          </div>
-          <h3 class="font-bold text-slate-800 text-base">自訂標籤分類與色彩</h3>
-        </div>
-        <button id="btnCloseCatModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i class="ph ph-x text-lg"></i>
-        </button>
-      </div>
-
-      <!-- 新增標籤輸入區 -->
-      <div class="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-        <input type="color" id="newCatColor" value="#3b82f6" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 bg-white p-0.5 shrink-0">
-        <input type="text" id="newCatName" placeholder="新增標籤名稱..." class="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        <button type="button" id="btnAddCategory" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shrink-0 flex items-center gap-1 shadow-2xs">
-          <i class="ph ph-plus"></i> 新增
-        </button>
-      </div>
-
-      <!-- 標籤清單容器 -->
-      <div class="max-h-56 overflow-y-auto space-y-1.5 pr-1" id="categoryListContainer">
-        <!-- 動態渲染標籤清單 -->
-      </div>
-
-      <div class="pt-2 text-right border-t border-slate-100">
-        <button type="button" id="btnDoneCategory" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium">
-          完成
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3.5 成員（學生）名單管理 Modal -->
-  <div id="memberModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden p-6 space-y-4 max-h-[90vh] flex flex-col">
-      <div class="flex items-center justify-between border-b pb-3 border-slate-100">
-        <div class="flex items-center gap-2">
-          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-            <i class="ph ph-users-three text-xl"></i>
+  <!-- ==================== 統一整合設定中心 Modal ==================== -->
+  <div id="masterSettingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all flex flex-col max-h-[92vh]">
+      <!-- 頂部標題列 -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-indigo-50 rounded-xl text-indigo-600 shadow-inner">
+            <i class="ph ph-sliders-horizontal text-xl"></i>
           </div>
           <div>
-            <h3 class="font-bold text-slate-800 text-base">編輯人員 / 學生名單</h3>
-            <p class="text-[11px] text-slate-400">設定座號、姓名與專屬小圖頭像，名單將跨裝置同步。</p>
+            <h3 class="font-bold text-slate-800 text-base">行事曆整合設定中心</h3>
+            <p class="text-[11px] text-slate-400">成員、標籤、外觀、字體與備份一站式管理</p>
           </div>
         </div>
-        <button id="btnCloseMemberModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+        <button id="btnCloseSettingsModal" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
           <i class="ph ph-x text-lg"></i>
         </button>
       </div>
 
-      <!-- 新增成員輸入區塊 -->
-      <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
-        <span class="block text-xs font-semibold text-slate-700">新增成員 / 學生</span>
-        <div class="grid grid-cols-12 gap-2 items-center">
-          <!-- 座號 -->
-          <div class="col-span-3">
-            <input type="text" id="newMemberNo" placeholder="座號(如01)" class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-center">
+      <!-- 頁籤按鈕切換列 -->
+      <div class="flex border-b border-slate-200 bg-slate-100/70 px-4 pt-2 gap-1 overflow-x-auto select-none" id="settingsTabContainer">
+        <button type="button" data-tab="tab-members" class="settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-indigo-600 text-indigo-700 bg-white">
+          <i class="ph ph-users-three text-sm"></i>
+          <span>成員名單</span>
+        </button>
+        <button type="button" data-tab="tab-categories" class="settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60">
+          <i class="ph ph-tag text-sm"></i>
+          <span>標籤分類</span>
+        </button>
+        <button type="button" data-tab="tab-appearance" class="settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60">
+          <i class="ph ph-palette text-sm"></i>
+          <span>外觀背景</span>
+        </button>
+        <button type="button" data-tab="tab-font" class="settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60">
+          <i class="ph ph-text-t text-sm"></i>
+          <span>字體大小</span>
+        </button>
+        <button type="button" data-tab="tab-backup" class="settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60">
+          <i class="ph ph-floppy-disk text-sm"></i>
+          <span>資料備份</span>
+        </button>
+      </div>
+
+      <!-- 設定內容容器 -->
+      <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
+        
+        <!-- Tab 1: 成員名單 -->
+        <div id="tab-members" class="settings-tab-content space-y-4">
+          <!-- 新增成員輸入區塊 -->
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+            <span class="block text-xs font-semibold text-slate-700">新增成員 / 學生</span>
+            <div class="grid grid-cols-12 gap-2 items-center">
+              <div class="col-span-3">
+                <input type="text" id="newMemberNo" placeholder="座號(如01)" class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-center">
+              </div>
+              <div class="col-span-5">
+                <input type="text" id="newMemberName" placeholder="學生/人員姓名" class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <div class="col-span-2 relative">
+                <button type="button" id="btnPickMemberAvatar" class="w-full text-base py-1 px-1 bg-white border border-slate-200 rounded-lg hover:border-indigo-400 flex items-center justify-center" title="選擇頭像小圖">
+                  <span id="newMemberAvatarPreview">👦</span>
+                </button>
+              </div>
+              <div class="col-span-2">
+                <button type="button" id="btnAddMember" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-xs flex items-center justify-center gap-1">
+                  <i class="ph ph-plus"></i> 新增
+                </button>
+              </div>
+            </div>
+
+            <!-- 頭像小圖挑選庫 (60+ 種) -->
+            <div id="avatarPickerContainer" class="p-2 bg-white rounded-lg border border-slate-200 space-y-1 hidden">
+              <div class="text-[10px] text-slate-400 font-medium">點選挑選頭像小圖（超過 60 種選擇）：</div>
+              <div class="max-h-40 overflow-y-auto grid grid-cols-10 gap-1 text-lg text-center p-1 bg-slate-50/50 rounded-lg">
+                <!-- 學生與人物 (12種) -->
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="男學生">👦</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="女學生">👧</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="青年">🧑</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幼童">🧒</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="戴眼鏡學生">🤓</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="笑臉">😊</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="自信">😎</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="天使">👼</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小隊長">👮</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="探險家">🤠</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="超人">🦸</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小精靈">🧙</button>
+
+                <!-- 可愛動物 (16種) -->
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小貓">🐱</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小狗">🐶</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="兔子">🐰</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小熊">🐻</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="熊貓">🐼</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="無尾熊">🐨</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獅子">🦁</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="老虎">🐯</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="青蛙">🐸</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小豬">🐷</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="猴子">🐵</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小雞">🐥</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="企鵝">🐧</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="海豚">🐬</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="恐龍">🦖</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獨角獸">🦄</button>
+
+                <!-- 校園與學習文具 (12種) -->
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="書本">📚</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="書包">🎒</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鉛筆">✏️</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="畫筆調色盤">🎨</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="顯微鏡">🔬</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="望遠鏡">🔭</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="筆電">💻</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="地球儀">🌍</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="放大鏡">🔍</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鈴鐺">🔔</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="直尺">📐</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="便籤">📝</button>
+
+                <!-- 運動與才藝 (12種) -->
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="足球">⚽</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="籃球">🏀</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="棒球">⚾</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="網球">🎾</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="羽球">🏸</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獎盃">🏆</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獎牌">🥇</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="音符">🎵</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鋼琴鍵盤">🎹</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="吉他">🎸</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="電玩遊戲">🎮</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="滑板">🛹</button>
+
+                <!-- 自然、星空與符號 (14種) -->
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="星星">⭐</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="閃亮">✨</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="火箭">🚀</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="太陽">☀️</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="彩虹">🌈</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幸運草">🍀</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="櫻花">🌸</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幼苗">🌱</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="向日葵">🌻</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="紅蘋果">🍎</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="草莓">🍓</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="皇冠">👑</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鑽石">💎</button>
+                <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="愛心">❤️</button>
+              </div>
+            </div>
           </div>
-          <!-- 姓名 -->
-          <div class="col-span-5">
-            <input type="text" id="newMemberName" placeholder="學生/人員姓名" class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+          <!-- 成員清冊列表 -->
+          <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1" id="memberListContainer">
+            <!-- JS 動態生成 -->
           </div>
-          <!-- 頭像選擇器按鈕 -->
-          <div class="col-span-2 relative">
-            <button type="button" id="btnPickMemberAvatar" class="w-full text-base py-1 px-1 bg-white border border-slate-200 rounded-lg hover:border-indigo-400 flex items-center justify-center" title="選擇頭像小圖">
-              <span id="newMemberAvatarPreview">👦</span>
+
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+            <button type="button" id="btnQuickGenStudents" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+              <i class="ph ph-magic-wand"></i> 批次匯入範例名單 (01~05)
+            </button>
+            <button type="button" id="btnExportMembersOnly" class="text-xs text-slate-600 hover:text-indigo-600 flex items-center gap-1">
+              <i class="ph ph-copy"></i> 複製名單代碼
             </button>
           </div>
-          <!-- 新增按鈕 -->
-          <div class="col-span-2">
-            <button type="button" id="btnAddMember" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-xs flex items-center justify-center gap-1">
+        </div>
+
+        <!-- Tab 2: 標籤分類 -->
+        <div id="tab-categories" class="settings-tab-content space-y-4 hidden">
+          <!-- 新增標籤輸入區 -->
+          <div class="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <input type="color" id="newCatColor" value="#3b82f6" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 bg-white p-0.5 shrink-0">
+            <input type="text" id="newCatName" placeholder="新增標籤名稱..." class="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button type="button" id="btnAddCategory" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shrink-0 flex items-center gap-1 shadow-2xs">
               <i class="ph ph-plus"></i> 新增
             </button>
           </div>
-        </div>
 
-        <!-- 常用頭像小圖盤（可展開挑選） -->
-        <div id="avatarPickerContainer" class="p-2 bg-white rounded-lg border border-slate-200 space-y-1 hidden">
-          <div class="text-[10px] text-slate-400 font-medium">點選挑選頭像小圖（超過 60 種選擇）：</div>
-          <div class="max-h-48 overflow-y-auto grid grid-cols-10 gap-1 text-lg text-center p-1 bg-slate-50/50 rounded-lg">
-            <!-- 學生與人物 (12種) -->
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="男學生">👦</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="女學生">👧</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="青年">🧑</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幼童">🧒</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="戴眼鏡學生">🤓</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="笑臉">😊</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="自信">😎</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="天使">👼</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小隊長">👮</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="探險家">🤠</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="超人">🦸</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小精靈">🧙</button>
-
-            <!-- 可愛動物 (16種) -->
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小貓">🐱</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小狗">🐶</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="兔子">🐰</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小熊">🐻</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="熊貓">🐼</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="無尾熊">🐨</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獅子">🦁</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="老虎">🐯</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="青蛙">🐸</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小豬">🐷</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="猴子">🐵</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="小雞">🐥</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="企鵝">🐧</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="海豚">🐬</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="恐龍">🦖</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獨角獸">🦄</button>
-
-            <!-- 校園與學習文具 (12種) -->
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="書本">📚</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="書包">🎒</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鉛筆">✏️</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="畫筆調色盤">🎨</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="顯微鏡">🔬</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="望遠鏡">🔭</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="筆電">💻</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="地球儀">🌍</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="放大鏡">🔍</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鈴鐺">🔔</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="直尺">📐</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="便籤">📝</button>
-
-            <!-- 運動與才藝 (12種) -->
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="足球">⚽</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="籃球">🏀</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="棒球">⚾</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="網球">🎾</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="羽球">🏸</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獎盃">🏆</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="獎牌">🥇</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="音符">🎵</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鋼琴鍵盤">🎹</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="吉他">🎸</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="電玩遊戲">🎮</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="滑板">🛹</button>
-
-            <!-- 自然、星空與幸運符 (14種) -->
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="星星">⭐</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="閃亮">✨</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="火箭">🚀</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="太陽">☀️</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="彩虹">🌈</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幸運草">🍀</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="櫻花">🌸</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="幼苗">🌱</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="向日葵">🌻</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="紅蘋果">🍎</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="草莓">🍓</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="皇冠">👑</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="鑽石">💎</button>
-            <button type="button" class="avatar-option p-1 hover:scale-125 transition" title="愛心">❤️</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 成員清單清冊 -->
-      <div class="flex-1 overflow-y-auto space-y-1.5 pr-1 min-h-[160px]" id="memberListContainer">
-        <!-- 動態渲染成員列表 -->
-      </div>
-
-      <div class="pt-2 flex items-center justify-between border-t border-slate-100">
-        <button type="button" id="btnQuickGenStudents" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
-          <i class="ph ph-magic-wand"></i> 批次匯入範例名單
-        </button>
-        <div class="flex items-center gap-2">
-          <button type="button" id="btnExportMembersOnly" class="text-[11px] text-slate-600 hover:text-indigo-600 flex items-center gap-0.5">
-            <i class="ph ph-copy"></i> 複製名單代碼
-          </button>
-          <button type="button" id="btnDoneMemberModal" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium">
-            完成
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3.8 資料備份與同步診斷 Modal -->
-  <div id="backupModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden p-6 space-y-4">
-      <div class="flex items-center justify-between border-b pb-3 border-slate-100">
-        <div class="flex items-center gap-2">
-          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-            <i class="ph ph-floppy-disk text-xl"></i>
-          </div>
-          <h3 class="font-bold text-slate-800 text-base">備份、還原與跨端同步</h3>
-        </div>
-        <button id="btnCloseBackupModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i class="ph ph-x text-lg"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <p class="text-slate-600 leading-relaxed">
-          若您輸入了 20~30 位學生名單，可在此<strong>一鍵匯出完整代碼</strong>，在應用程式版點擊「匯入」即可 0 秒瞬間對齊，亦可作為永久本機備份！
-        </p>
-
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <span class="font-semibold text-slate-700">當前房間完整資料（JSON 代碼）</span>
-            <button id="btnCopyBackupText" class="text-indigo-600 hover:underline text-[11px] flex items-center gap-0.5">
-              <i class="ph ph-copy"></i> 複製全部代碼
-            </button>
-          </div>
-          <textarea id="backupDataArea" rows="4" class="w-full text-[11px] font-mono p-2 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
-        </div>
-
-        <div class="flex items-center gap-2 pt-1">
-          <button id="btnApplyImportBackup" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition shadow-xs flex items-center justify-center gap-1">
-            <i class="ph ph-upload-simple"></i> 套用並覆蓋進當前房間
-          </button>
-          <button id="btnDownloadBackupFile" class="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition" title="下載備份檔 (.json)">
-            <i class="ph ph-download-simple"></i> 下載檔案
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 4. 自訂字體與文字大小 Modal -->
-  <div id="fontModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all flex flex-col">
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-        <div class="flex items-center gap-2">
-          <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-            <i class="ph ph-text-aa text-xl"></i>
-          </div>
-          <h3 class="font-bold text-slate-800 text-base">字體風格與文字大小設定</h3>
-        </div>
-        <button id="btnCloseFontModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i class="ph ph-x text-lg"></i>
-        </button>
-      </div>
-
-      <div class="p-6 space-y-5 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-700 mb-2">字體種類 (Font Family)</label>
-          <div class="grid grid-cols-2 gap-2" id="fontFamilySelector">
-            <button type="button" data-font="sans" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition active bg-emerald-50/50 border-emerald-400">
-              <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Noto Sans TC', sans-serif;">現代黑體 (預設)</span>
-              <span class="text-[11px] text-slate-500">俐落現代，最清晰</span>
-            </button>
-            <button type="button" data-font="serif" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition">
-              <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Noto Serif TC', serif;">典雅明體 / 襯線</span>
-              <span class="text-[11px] text-slate-500">書卷質感，細緻優雅</span>
-            </button>
-            <button type="button" data-font="rounded" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition">
-              <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Nunito', 'Noto Sans TC', sans-serif;">柔和圓體 / 圓潤</span>
-              <span class="text-[11px] text-slate-500">溫和親切，舒適減壓</span>
-            </button>
-            <button type="button" data-font="mono" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition">
-              <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Fira Code', monospace;">工程等寬 (Monospace)</span>
-              <span class="text-[11px] text-slate-500">整齊規整，對齊極佳</span>
-            </button>
+          <!-- 標籤清單容器 -->
+          <div class="max-h-56 overflow-y-auto space-y-1.5 pr-1" id="categoryListContainer">
+            <!-- JS 動態渲染 -->
           </div>
         </div>
 
-        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
-          <div class="flex justify-between items-center text-slate-700">
-            <span class="font-semibold">整體文字縮放比例</span>
-            <span id="fontSizeDisplay" class="font-mono text-emerald-600 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">100%</span>
-          </div>
-          <input type="range" id="fontSizeRange" min="80" max="140" step="5" value="100" class="w-full accent-emerald-600 cursor-pointer">
-          <div class="flex justify-between text-[10px] text-slate-400">
-            <span>80% (精巧小字)</span>
-            <span>100% (標準預設)</span>
-            <span>140% (清晰大字)</span>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+        <!-- Tab 3: 外觀與背景 -->
+        <div id="tab-appearance" class="settings-tab-content space-y-4 hidden">
+          <!-- 預設純色色票 -->
           <div>
-            <span class="block font-semibold text-slate-700">行程文字加粗 (Bold)</span>
-            <span class="text-[11px] text-slate-500">讓桌面月曆格子中的事項更加醒目</span>
+            <label class="block font-semibold text-slate-700 mb-1.5">質感色票（包含預設藏藍）</label>
+            <div class="grid grid-cols-5 gap-2">
+              <button type="button" onclick="applyPresetBg('color', '#0f172a')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #0f172a;" title="經典藏藍 (預設)">藏藍</button>
+              <button type="button" onclick="applyPresetBg('color', '#1e293b')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #1e293b;" title="板岩灰藍">石墨</button>
+              <button type="button" onclick="applyPresetBg('color', '#1e1b4b')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #1e1b4b;" title="深夜靛藍">夜靛</button>
+              <button type="button" onclick="applyPresetBg('color', '#064e3b')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #064e3b;" title="森林深綠">森綠</button>
+              <button type="button" onclick="applyPresetBg('color', '#f8fafc')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-slate-700 font-medium text-[10px]" style="background-color: #f8fafc;" title="柔和亮白">純淨</button>
+            </div>
           </div>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="boldTextCheckbox" class="sr-only peer">
-            <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-          </label>
-        </div>
 
-        <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-1">
-          <span class="block text-[11px] text-slate-400 font-medium">即時效果預覽：</span>
-          <div id="fontPreviewBox" class="p-2 rounded bg-emerald-50 border border-emerald-100 flex items-center justify-between text-emerald-900">
-            <span id="previewText">14:30 團隊會議報告與進度追蹤</span>
-            <span class="text-[10px] bg-emerald-200/80 px-1.5 py-0.5 rounded font-mono">11月3日</span>
+          <!-- 自選單色背景 -->
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+            <label class="block font-semibold text-slate-700">自選單色背景</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="bgCustomColorPicker" value="#0f172a" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 bg-white p-0.5 shrink-0">
+              <input type="text" id="bgCustomColorText" value="#0f172a" placeholder="#0f172a" class="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono">
+              <button type="button" id="btnApplyCustomColor" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition">
+                套用
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-        <button id="btnResetFont" class="text-rose-600 hover:text-rose-700 font-medium text-xs flex items-center gap-1">
-          <i class="ph ph-arrow-counter-clockwise"></i> 恢復預設字體
-        </button>
-        <button id="btnDoneFontModal" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs shadow-xs transition">
-          完成設定
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 5. 自訂背景 Modal -->
-  <div id="bgModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-        <div class="flex items-center gap-2">
-          <div class="p-2 bg-amber-50 rounded-lg text-amber-600">
-            <i class="ph ph-paint-brush-broad text-xl"></i>
+          <!-- 自訂圖片背景 -->
+          <div class="space-y-2">
+            <label class="block font-semibold text-slate-700">自訂桌布圖片</label>
+            <input type="file" id="bgFileInput" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+            <div class="flex items-center gap-2 pt-1">
+              <input type="url" id="bgUrlInput" placeholder="或輸入圖片網址 https://..." class="flex-1 text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <button type="button" id="btnApplyBgUrl" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition">
+                載入
+              </button>
+            </div>
           </div>
-          <h3 class="font-bold text-slate-800 text-base">自訂背景與外觀風格</h3>
-        </div>
-        <button id="btnCloseBgModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i class="ph ph-x text-lg"></i>
-        </button>
-      </div>
 
-      <div class="p-6 overflow-y-auto space-y-4 text-xs">
-        <!-- 預設純色色票 -->
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1.5">質感色票（包含預設藏藍）</label>
-          <div class="grid grid-cols-5 gap-2">
-            <button type="button" onclick="applyPresetBg('color', '#0f172a')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #0f172a;" title="經典藏藍 (預設)">藏藍</button>
-            <button type="button" onclick="applyPresetBg('color', '#1e293b')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #1e293b;" title="板岩灰藍">石墨</button>
-            <button type="button" onclick="applyPresetBg('color', '#1e1b4b')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #1e1b4b;" title="深夜靛藍">夜靛</button>
-            <button type="button" onclick="applyPresetBg('color', '#064e3b')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-white font-medium text-[10px]" style="background-color: #064e3b;" title="森林深綠">森綠</button>
-            <button type="button" onclick="applyPresetBg('color', '#f8fafc')" class="h-9 rounded-lg border border-slate-200 shadow-2xs hover:scale-105 transition flex items-center justify-center text-slate-700 font-medium text-[10px]" style="background-color: #f8fafc;" title="柔和亮白">純淨</button>
+          <!-- 遮罩透明度與模糊調節 -->
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+            <div>
+              <div class="flex justify-between items-center text-slate-700 mb-1">
+                <span class="font-semibold">白色遮罩透明度</span>
+                <span id="overlayOpacityVal" class="font-mono text-amber-600 font-bold">75%</span>
+              </div>
+              <input type="range" id="overlayOpacityRange" min="20" max="95" step="5" value="75" class="w-full accent-amber-600 cursor-pointer">
+            </div>
+            <div>
+              <div class="flex justify-between items-center text-slate-700 mb-1">
+                <span class="font-semibold">背景毛玻璃模糊</span>
+                <span id="bgBlurVal" class="font-mono text-amber-600 font-bold">0px</span>
+              </div>
+              <input type="range" id="bgBlurRange" min="0" max="20" step="1" value="0" class="w-full accent-amber-600 cursor-pointer">
+            </div>
           </div>
-        </div>
 
-        <!-- 自選單色背景 -->
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <label class="block font-semibold text-slate-700">自選單色背景</label>
-          <div class="flex items-center gap-2">
-            <input type="color" id="bgCustomColorPicker" value="#0f172a" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-300 bg-white p-0.5 shrink-0">
-            <input type="text" id="bgCustomColorText" value="#0f172a" placeholder="#0f172a" class="flex-1 text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono">
-            <button type="button" id="btnApplyCustomColor" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition">
-              套用
+          <!-- 日曆格子本體底色與透明度調節 -->
+          <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label class="block font-semibold text-indigo-900">日曆格子底色與透明度</label>
+              <span class="text-[10px] text-indigo-600">自訂每格背景</span>
+            </div>
+            <div class="grid grid-cols-5 gap-2">
+              <button type="button" onclick="applyCellPresetBg('#ffffff', 95)" class="h-8 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="純白清爽">純白</button>
+              <button type="button" onclick="applyCellPresetBg('#f8fafc', 90)" class="h-8 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="極簡乳白">乳白</button>
+              <button type="button" onclick="applyCellPresetBg('#f1f5f9', 85)" class="h-8 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="淺灰柔和">淺灰</button>
+              <button type="button" onclick="applyCellPresetBg('#e0e7ff', 80)" class="h-8 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="淡靛藍">淡藍</button>
+              <button type="button" onclick="applyCellPresetBg('#1e293b', 85)" class="h-8 rounded-lg border border-slate-700 bg-slate-800 text-white font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="深色沉浸">深色</button>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+              <span class="text-slate-600 text-[11px] whitespace-nowrap">自選色：</span>
+              <input type="color" id="cellCustomColorPicker" value="#ffffff" class="w-7 h-7 rounded cursor-pointer border border-slate-200 bg-white p-0.5 shrink-0">
+              <input type="text" id="cellCustomColorText" value="#ffffff" class="w-20 text-xs px-2 py-1 bg-white border border-slate-200 rounded font-mono">
+              <span class="text-slate-500 text-[11px] ml-1">不透明：</span>
+              <input type="range" id="cellOpacityRange" min="30" max="100" step="5" value="95" class="flex-1 accent-indigo-600 cursor-pointer">
+              <span id="cellOpacityVal" class="font-mono text-indigo-700 font-semibold text-[11px] w-8">95%</span>
+            </div>
+          </div>
+
+          <div class="pt-1 text-right">
+            <button id="btnResetDefaultBg" type="button" class="text-rose-600 hover:text-rose-700 font-medium text-xs">
+              <i class="ph ph-arrow-counter-clockwise"></i> 恢復預設藏藍
             </button>
           </div>
         </div>
 
-        <!-- 自訂圖片背景 -->
-        <div class="space-y-2">
-          <label class="block font-semibold text-slate-700">上傳自訂背景圖片</label>
-          <input type="file" id="bgFileInput" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+        <!-- Tab 4: 字體與文字大小 -->
+        <div id="tab-font" class="settings-tab-content space-y-4 hidden">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-2">字體種類 (Font Family)</label>
+            <div class="grid grid-cols-2 gap-2" id="fontFamilySelector">
+              <button type="button" data-font="sans" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition active bg-emerald-50/50 border-emerald-400">
+                <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Noto Sans TC', sans-serif;">現代黑體 (預設)</span>
+                <span class="text-[11px] text-slate-500">俐落現代，最清晰</span>
+              </button>
+              <button type="button" data-font="serif" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition">
+                <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Noto Serif TC', serif;">典雅明體 / 襯線</span>
+                <span class="text-[11px] text-slate-500">書卷質感，細緻優雅</span>
+              </button>
+              <button type="button" data-font="rounded" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition">
+                <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Nunito', 'Noto Sans TC', sans-serif;">柔和圓體 / 圓潤</span>
+                <span class="text-[11px] text-slate-500">溫和親切，舒適減壓</span>
+              </button>
+              <button type="button" data-font="mono" class="font-btn p-3 rounded-xl border border-slate-200 text-left hover:border-emerald-500 transition">
+                <span class="block text-sm font-semibold text-slate-800" style="font-family: 'Fira Code', monospace;">工程等寬 (Monospace)</span>
+                <span class="text-[11px] text-slate-500">整齊規整，對齊極佳</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+            <div class="flex justify-between items-center text-slate-700">
+              <span class="font-semibold">整體文字縮放比例</span>
+              <span id="fontSizeDisplay" class="font-mono text-emerald-600 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">100%</span>
+            </div>
+            <input type="range" id="fontSizeRange" min="80" max="140" step="5" value="100" class="w-full accent-emerald-600 cursor-pointer">
+          </div>
+
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+            <div>
+              <span class="block font-semibold text-slate-700">行程文字加粗 (Bold)</span>
+              <span class="text-[11px] text-slate-500">讓桌面月曆格子中的事項更加醒目</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="boldTextCheckbox" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
+
+          <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-1">
+            <span class="block text-[11px] text-slate-400 font-medium">即時效果預覽：</span>
+            <div id="fontPreviewBox" class="p-2 rounded bg-emerald-50 border border-emerald-100 flex items-center justify-between text-emerald-900">
+              <span id="previewText">14:30 團隊會議報告與進度追蹤</span>
+              <span class="text-[10px] bg-emerald-200/80 px-1.5 py-0.5 rounded font-mono">11月3日</span>
+            </div>
+          </div>
+
+          <div class="pt-1 text-right">
+            <button id="btnResetFont" type="button" class="text-rose-600 hover:text-rose-700 font-medium text-xs">
+              <i class="ph ph-arrow-counter-clockwise"></i> 恢復預設字體
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 5: 資料備份 -->
+        <div id="tab-backup" class="settings-tab-content space-y-4 hidden">
+          <p class="text-slate-600 leading-relaxed">
+            若您輸入了 20~30 位學生名單或大量行程，可在此<strong>一鍵匯出完整代碼</strong>，在應用程式版點擊「套用」即可 0 秒瞬間對齊，亦可下載檔案永久備份。
+          </p>
+
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-semibold text-slate-700">當前房間完整資料（JSON 代碼）</span>
+              <button type="button" id="btnCopyBackupText" class="text-indigo-600 hover:underline text-[11px] flex items-center gap-0.5">
+                <i class="ph ph-copy"></i> 複製全部代碼
+              </button>
+            </div>
+            <textarea id="backupDataArea" rows="4" class="w-full text-[11px] font-mono p-2 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
+          </div>
+
           <div class="flex items-center gap-2 pt-1">
-            <input type="url" id="bgUrlInput" placeholder="或輸入圖片網址 https://..." class="flex-1 text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
-            <button type="button" id="btnApplyBgUrl" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition">
-              載入網址
+            <button type="button" id="btnApplyImportBackup" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition shadow-xs flex items-center justify-center gap-1">
+              <i class="ph ph-upload-simple"></i> 套用並覆蓋進當前房間
+            </button>
+            <button type="button" id="btnDownloadBackupFile" class="px-3 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition" title="下載備份檔 (.json)">
+              <i class="ph ph-download-simple"></i> 下載檔案
             </button>
           </div>
         </div>
 
-        <!-- 遮罩透明度與模糊調節 -->
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
-          <div>
-            <div class="flex justify-between items-center text-slate-700 mb-1">
-              <span class="font-semibold">白色遮罩透明度</span>
-              <span id="overlayOpacityVal" class="font-mono text-amber-600 font-bold">75%</span>
-            </div>
-            <input type="range" id="overlayOpacityRange" min="20" max="95" step="5" value="75" class="w-full accent-amber-600 cursor-pointer">
-            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
-              <span>清透 (20%)</span>
-              <span>標準 (75%)</span>
-              <span>極度柔和 (95%)</span>
-            </div>
-          </div>
-
-          <div>
-            <div class="flex justify-between items-center text-slate-700 mb-1">
-              <span class="font-semibold">背景毛玻璃模糊</span>
-              <span id="bgBlurVal" class="font-mono text-amber-600 font-bold">0px</span>
-            </div>
-            <input type="range" id="bgBlurRange" min="0" max="20" step="1" value="0" class="w-full accent-amber-600 cursor-pointer">
-          </div>
-        </div>
-
-        <!-- 日曆格子本體底色與透明度調節 -->
-        <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <label class="block font-semibold text-indigo-900">日曆格子底色與透明度</label>
-            <span class="text-[10px] text-indigo-600">可自訂每格的背景</span>
-          </div>
-          <div class="grid grid-cols-5 gap-2">
-            <button type="button" onclick="applyCellPresetBg('#ffffff', 95)" class="h-8 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="純白清爽">純白</button>
-            <button type="button" onclick="applyCellPresetBg('#f8fafc', 90)" class="h-8 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="極簡乳白">乳白</button>
-            <button type="button" onclick="applyCellPresetBg('#f1f5f9', 85)" class="h-8 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="淺灰柔和">淺灰</button>
-            <button type="button" onclick="applyCellPresetBg('#e0e7ff', 80)" class="h-8 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="淡靛藍">淡藍</button>
-            <button type="button" onclick="applyCellPresetBg('#1e293b', 85)" class="h-8 rounded-lg border border-slate-700 bg-slate-800 text-white font-medium text-[10px] shadow-2xs hover:scale-105 transition" title="深色沉浸">深色</button>
-          </div>
-          <div class="flex items-center gap-2 pt-1">
-            <span class="text-slate-600 text-[11px] whitespace-nowrap">自選格子色彩：</span>
-            <input type="color" id="cellCustomColorPicker" value="#ffffff" class="w-7 h-7 rounded cursor-pointer border border-slate-200 bg-white p-0.5 shrink-0">
-            <input type="text" id="cellCustomColorText" value="#ffffff" class="w-20 text-xs px-2 py-1 bg-white border border-slate-200 rounded font-mono">
-            <span class="text-slate-500 text-[11px] ml-1">不透明度：</span>
-            <input type="range" id="cellOpacityRange" min="30" max="100" step="5" value="95" class="flex-1 accent-indigo-600 cursor-pointer">
-            <span id="cellOpacityVal" class="font-mono text-indigo-700 font-semibold text-[11px] w-8">95%</span>
-          </div>
-        </div>
       </div>
 
-      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-        <button id="btnResetDefaultBg" class="text-rose-600 hover:text-rose-700 font-medium text-xs flex items-center gap-1">
-          <i class="ph ph-arrow-counter-clockwise"></i> 恢復預設藏藍
-        </button>
-        <button id="btnDoneBgModal" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium text-xs shadow-xs transition">
-          完成設定
+      <!-- 底部關閉按鈕列 -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <span class="text-[11px] text-slate-400">變更後將自動即時跨設備同步</span>
+        <button id="btnDoneMasterSettings" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+          完成
         </button>
       </div>
     </div>
@@ -2958,10 +2881,131 @@
         updateModalBadge(e.target.value);
       });
 
-      // 備份與診斷 Modal
-      const backupModal = document.getElementById('backupModal');
-      const btnOpenBackup = document.getElementById('btnOpenBackupModal');
-      const btnCloseBackup = document.getElementById('btnCloseBackupModal');
+      // ==========================================
+      // 多合一設定中心（Master Settings Modal）邏輯
+      // ==========================================
+      const masterSettingsModal = document.getElementById('masterSettingsModal');
+      const btnOpenMasterSettings = document.getElementById('btnOpenMasterSettings');
+      const btnCloseSettingsModal = document.getElementById('btnCloseSettingsModal');
+      const btnDoneMasterSettings = document.getElementById('btnDoneMasterSettings');
+      const btnQuickOpenMember = document.getElementById('btnQuickOpenMemberModal');
+      const btnQuickOpenCat = document.getElementById('btnQuickOpenCatModal');
+
+      function openMasterSettings(targetTabId = 'tab-members') {
+        if (!masterSettingsModal) return;
+        renderMemberManagerList();
+        renderCategoryManagerList();
+        updateBackupTextArea();
+        switchSettingsTab(targetTabId);
+        masterSettingsModal.classList.remove('hidden');
+      }
+
+      function closeMasterSettings() {
+        if (!masterSettingsModal) return;
+        masterSettingsModal.classList.add('hidden');
+        renderCalendar();
+      }
+
+      function switchSettingsTab(tabId) {
+        document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+          if (btn.getAttribute('data-tab') === tabId) {
+            btn.className = "settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-indigo-600 text-indigo-700 bg-white";
+          } else {
+            btn.className = "settings-tab-btn px-3 py-2 text-xs font-semibold rounded-t-xl transition border-b-2 flex items-center gap-1.5 border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60";
+          }
+        });
+
+        document.querySelectorAll('.settings-tab-content').forEach(content => {
+          if (content.id === tabId) {
+            content.classList.remove('hidden');
+          } else {
+            content.classList.add('hidden');
+          }
+        });
+      }
+
+      if (btnOpenMasterSettings) {
+        btnOpenMasterSettings.addEventListener('click', () => openMasterSettings('tab-members'));
+      }
+      if (btnCloseSettingsModal) btnCloseSettingsModal.addEventListener('click', closeMasterSettings);
+      if (btnDoneMasterSettings) btnDoneMasterSettings.addEventListener('click', closeMasterSettings);
+
+      // 行程視窗內的快捷管理連結
+      if (btnQuickOpenMember) {
+        btnQuickOpenMember.addEventListener('click', () => openMasterSettings('tab-members'));
+      }
+      if (btnQuickOpenCat) {
+        btnQuickOpenCat.addEventListener('click', () => openMasterSettings('tab-categories'));
+      }
+
+      // 頁籤切換監聽
+      document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchSettingsTab(btn.getAttribute('data-tab'));
+        });
+      });
+
+      // 成員相關操作
+      const btnAddMember = document.getElementById('btnAddMember');
+      const btnPickAvatar = document.getElementById('btnPickMemberAvatar');
+      const avatarBox = document.getElementById('avatarPickerContainer');
+      const btnToggleAll = document.getElementById('btnToggleAllMembers');
+
+      if (btnAddMember) btnAddMember.addEventListener('click', handleAddMember);
+
+      if (btnToggleAll) {
+        btnToggleAll.addEventListener('click', () => {
+          if (currentModalSelectedMemberIds.includes('ALL_MEMBERS')) {
+            currentModalSelectedMemberIds = [];
+          } else {
+            currentModalSelectedMemberIds = ['ALL_MEMBERS'];
+          }
+          renderEventMemberOptions();
+        });
+      }
+
+      if (btnPickAvatar && avatarBox) {
+        btnPickAvatar.addEventListener('click', () => {
+          avatarBox.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('.avatar-option').forEach(btn => {
+          btn.addEventListener('click', () => {
+            selectedAvatarEmoji = btn.textContent;
+            document.getElementById('newMemberAvatarPreview').textContent = selectedAvatarEmoji;
+            avatarBox.classList.add('hidden');
+          });
+        });
+      }
+
+      // 批次匯入範例名單 (座號 01~05)
+      const btnQuickGen = document.getElementById('btnQuickGenStudents');
+      if (btnQuickGen) {
+        btnQuickGen.addEventListener('click', () => {
+          const sampleNames = ['小明', '小華', '大同', '美美', '志豪', '雅婷', '冠宇', '欣怡', '家豪', '淑芬'];
+          const startNo = customMembers.length + 1;
+          for (let i = 0; i < 5; i++) {
+            const no = String(startNo + i).padStart(2, '0');
+            const randomAvatar = AVATAR_LIST_60[Math.floor(Math.random() * AVATAR_LIST_60.length)];
+            customMembers.push({
+              id: 'mem_' + Date.now() + '_' + i,
+              seatNo: no,
+              name: sampleNames[(startNo + i - 1) % sampleNames.length],
+              avatar: randomAvatar
+            });
+          }
+          broadcastRoomChanges();
+          updateMemberDropdowns();
+          renderMemberManagerList();
+          renderCalendar();
+        });
+      }
+
+      // 標籤相關操作
+      const btnAddCategory = document.getElementById('btnAddCategory');
+      if (btnAddCategory) btnAddCategory.addEventListener('click', handleAddCategory);
+
+      // 備份相關操作
       const backupDataArea = document.getElementById('backupDataArea');
       const btnCopyBackup = document.getElementById('btnCopyBackupText');
       const btnApplyImport = document.getElementById('btnApplyImportBackup');
@@ -2983,19 +3027,6 @@
         }
       }
 
-      if (btnOpenBackup && backupModal) {
-        btnOpenBackup.addEventListener('click', () => {
-          updateBackupTextArea();
-          backupModal.classList.remove('hidden');
-        });
-      }
-
-      if (btnCloseBackup && backupModal) {
-        btnCloseBackup.addEventListener('click', () => {
-          backupModal.classList.add('hidden');
-        });
-      }
-
       if (btnCopyBackup && backupDataArea) {
         btnCopyBackup.addEventListener('click', () => {
           backupDataArea.select();
@@ -3004,7 +3035,6 @@
         });
       }
 
-      // 僅複製成員名單捷徑
       if (btnExportMembersOnly) {
         btnExportMembersOnly.addEventListener('click', () => {
           const membersJson = JSON.stringify(customMembers, null, 2);
@@ -3064,7 +3094,7 @@
             renderMemberManagerList();
             renderEventMemberOptions();
             broadcastRoomChanges();
-            backupModal.classList.add('hidden');
+            closeMasterSettings();
             alert('已成功匯入並套用備份！');
           } catch (err) {
             alert('備份代碼格式有誤，請確認複製的內容是否完整。');
@@ -3104,11 +3134,7 @@
         });
       }
 
-      // 背景 Modal 控制
-      const btnOpenBg = document.getElementById('btnOpenBgModal');
-      const btnCloseBg = document.getElementById('btnCloseBgModal');
-      const btnDoneBg = document.getElementById('btnDoneBgModal');
-      const bgModal = document.getElementById('bgModal');
+      // 背景外觀控制
       const bgCustomPicker = document.getElementById('bgCustomColorPicker');
       const bgCustomText = document.getElementById('bgCustomColorText');
       const btnApplyCustomColor = document.getElementById('btnApplyCustomColor');
@@ -3118,14 +3144,6 @@
       const overlayOpacityRange = document.getElementById('overlayOpacityRange');
       const bgBlurRange = document.getElementById('bgBlurRange');
       const btnResetDefaultBg = document.getElementById('btnResetDefaultBg');
-
-      if (btnOpenBg && bgModal) {
-        btnOpenBg.addEventListener('click', () => {
-          bgModal.classList.remove('hidden');
-        });
-      }
-      if (btnCloseBg && bgModal) btnCloseBg.addEventListener('click', () => bgModal.classList.add('hidden'));
-      if (btnDoneBg && bgModal) btnDoneBg.addEventListener('click', () => bgModal.classList.add('hidden'));
 
       if (bgCustomPicker && bgCustomText) {
         bgCustomPicker.addEventListener('input', (e) => {
@@ -3176,6 +3194,77 @@
             blur: 0
           };
           applyBackgroundStyles();
+        });
+      }
+
+      // 字體設定
+      document.querySelectorAll('#fontFamilySelector .font-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          fontConfig.family = btn.getAttribute('data-font');
+          applyFontStyles();
+        });
+      });
+
+      document.getElementById('fontSizeRange').addEventListener('input', (e) => {
+        fontConfig.scale = parseInt(e.target.value, 10);
+        applyFontStyles();
+      });
+
+      document.getElementById('boldTextCheckbox').addEventListener('change', (e) => {
+        fontConfig.bold = e.target.checked;
+        applyFontStyles();
+      });
+
+      document.getElementById('btnResetFont').addEventListener('click', () => {
+        fontConfig = {
+          family: 'sans',
+          scale: 100,
+          bold: false
+        };
+        applyFontStyles();
+        renderCalendar();
+      });
+
+      // 時、分、課節與手動輸入框全面連動
+      populateHourAndMinuteOptions();
+      const eventTimeInput = document.getElementById('eventTimeInput');
+      const eventPeriodSelect = document.getElementById('eventPeriodSelect');
+      const eventHourSelect = document.getElementById('eventHourSelect');
+      const eventMinuteSelect = document.getElementById('eventMinuteSelect');
+      const btnClearTime = document.getElementById('btnClearTimeSelection');
+
+      if (eventPeriodSelect) {
+        eventPeriodSelect.addEventListener('change', (e) => {
+          if (e.target.value) {
+            eventTimeInput.value = e.target.value;
+            if (eventHourSelect) eventHourSelect.value = '';
+            if (eventMinuteSelect) eventMinuteSelect.value = '';
+          }
+        });
+      }
+
+      function handleTimePickChange() {
+        const h = eventHourSelect ? eventHourSelect.value : '';
+        const m = eventMinuteSelect ? eventMinuteSelect.value : '';
+        if (h && m) {
+          eventTimeInput.value = `${h}:${m}`;
+          if (eventPeriodSelect) eventPeriodSelect.value = '';
+        } else if (h && !m) {
+          eventTimeInput.value = `${h}:00`;
+          if (eventMinuteSelect) eventMinuteSelect.value = '00';
+          if (eventPeriodSelect) eventPeriodSelect.value = '';
+        }
+      }
+
+      if (eventHourSelect) eventHourSelect.addEventListener('change', handleTimePickChange);
+      if (eventMinuteSelect) eventMinuteSelect.addEventListener('change', handleTimePickChange);
+
+      if (btnClearTime) {
+        btnClearTime.addEventListener('click', () => {
+          eventTimeInput.value = '';
+          if (eventPeriodSelect) eventPeriodSelect.value = '';
+          if (eventHourSelect) eventHourSelect.value = '';
+          if (eventMinuteSelect) eventMinuteSelect.value = '';
         });
       }
 
@@ -3243,19 +3332,6 @@
         });
       }
 
-      // 標籤 Modal 控制
-      const btnManageCategories = document.getElementById('btnManageCategories');
-      const btnQuickOpenCat = document.getElementById('btnQuickOpenCatModal');
-      const btnCloseCat = document.getElementById('btnCloseCatModal');
-      const btnDoneCat = document.getElementById('btnDoneCategory');
-      const btnAddCategory = document.getElementById('btnAddCategory');
-
-      if (btnManageCategories) btnManageCategories.addEventListener('click', openCategoryModal);
-      if (btnQuickOpenCat) btnQuickOpenCat.addEventListener('click', openCategoryModal);
-      if (btnCloseCat) btnCloseCat.addEventListener('click', closeCategoryModal);
-      if (btnDoneCat) btnDoneCat.addEventListener('click', closeCategoryModal);
-      if (btnAddCategory) btnAddCategory.addEventListener('click', handleAddCategory);
-
       // 安裝指南 Modal 控制
       const btnInstallGuide = document.getElementById('btnInstallGuide');
       const btnCloseGuide = document.getElementById('btnCloseGuideModal');
@@ -3277,46 +3353,6 @@
           guideModal.classList.add('hidden');
         });
       }
-
-      // 字體 Modal
-      document.getElementById('btnOpenFontModal').addEventListener('click', () => {
-        applyFontStyles();
-        document.getElementById('fontModal').classList.remove('hidden');
-      });
-      document.getElementById('btnCloseFontModal').addEventListener('click', () => {
-        document.getElementById('fontModal').classList.add('hidden');
-      });
-      document.getElementById('btnDoneFontModal').addEventListener('click', () => {
-        document.getElementById('fontModal').classList.add('hidden');
-        renderCalendar();
-      });
-
-      document.querySelectorAll('#fontFamilySelector .font-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          fontConfig.family = btn.getAttribute('data-font');
-          applyFontStyles();
-        });
-      });
-
-      document.getElementById('fontSizeRange').addEventListener('input', (e) => {
-        fontConfig.scale = parseInt(e.target.value, 10);
-        applyFontStyles();
-      });
-
-      document.getElementById('boldTextCheckbox').addEventListener('change', (e) => {
-        fontConfig.bold = e.target.checked;
-        applyFontStyles();
-      });
-
-      document.getElementById('btnResetFont').addEventListener('click', () => {
-        fontConfig = {
-          family: 'sans',
-          scale: 100,
-          bold: false
-        };
-        applyFontStyles();
-        renderCalendar();
-      });
     });
   </script>
 </body>
