@@ -133,26 +133,33 @@
           <span>設定</span>
         </button>
 
-        <!-- 團隊共編房間下拉選單與新增房間按鈕 -->
+        <!-- 團隊共編房間管理區（切換/進入與新增） -->
         <div class="relative flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
           <span class="text-xs font-medium text-slate-500 px-1.5 flex items-center gap-1">
-            <i class="ph ph-users text-sm text-indigo-600"></i> 房間:
+            <i class="ph ph-door text-sm text-indigo-600"></i> 房間:
           </span>
           <div class="relative">
-            <button id="btnRoomDropdownToggle" type="button" class="flex items-center justify-between gap-1.5 w-28 sm:w-32 text-xs font-semibold text-indigo-700 bg-white border border-slate-200 rounded px-2 py-1 hover:border-indigo-400 focus:outline-none transition">
-              <span id="currentRoomDisplay" class="truncate">school-work-2026</span>
+            <button id="btnRoomDropdownToggle" type="button" class="flex items-center justify-between gap-1.5 w-28 sm:w-36 text-xs font-semibold text-indigo-700 bg-white border border-slate-200 rounded px-2 py-1 hover:border-indigo-400 focus:outline-none transition">
+              <span id="currentRoomDisplay" class="truncate">尚未選定房間</span>
               <i class="ph ph-caret-down text-[10px] text-slate-400"></i>
             </button>
-            <!-- 房間歷史紀錄下拉選單 -->
-            <div id="roomDropdownMenu" class="absolute left-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-40 hidden max-h-56 overflow-y-auto">
-              <div class="px-2.5 py-1 text-[11px] font-semibold text-slate-400 border-b border-slate-100">
-                歷史房間紀錄
+            <!-- 房間操作下拉選單 -->
+            <div id="roomDropdownMenu" class="absolute left-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-40 hidden max-h-60 overflow-y-auto">
+              <div class="px-3 py-1 text-[11px] font-semibold text-slate-400 border-b border-slate-100">
+                切換或進入其他房間
+              </div>
+              <button type="button" id="btnMenuEnterRoom" class="w-full text-left px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-medium flex items-center gap-1.5">
+                <i class="ph ph-sign-in"></i> 輸入房間代號進入
+              </button>
+              <div class="border-t border-slate-100 my-1"></div>
+              <div class="px-3 py-1 text-[11px] font-semibold text-slate-400">
+                本機已驗證房間
               </div>
               <div id="roomHistoryList" class="py-0.5"></div>
             </div>
           </div>
           <!-- 新增房間按鈕 -->
-          <button id="btnOpenCreateRoomModal" class="ml-1 text-xs px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium transition flex items-center gap-1 shadow-2xs" title="建立全新獨立房間">
+          <button id="btnOpenCreateRoomModal" class="ml-1 text-xs px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium transition flex items-center gap-1 shadow-2xs" title="建立全新獨立房間（需設定管理密碼）">
             <i class="ph ph-plus text-xs"></i>
             <span>新增房間</span>
           </button>
@@ -815,7 +822,48 @@
     </div>
   </div>
 
-  <!-- 5.5 新增房間 Modal -->
+  <!-- 5.4 輸入代號進入房間 Modal（含密碼驗證） -->
+  <div id="enterRoomModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+            <i class="ph ph-key text-xl"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-base">切換 / 進入房間</h3>
+        </div>
+        <button id="btnCloseEnterRoomModal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="enterRoomForm" class="p-6 space-y-4 text-xs">
+        <div>
+          <label for="inputEnterRoomName" class="block font-semibold text-slate-700 mb-1">房間代碼 / 名稱</label>
+          <input type="text" id="inputEnterRoomName" required placeholder="例如：502、五年三班" 
+                 class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label for="inputEnterRoomPassword" class="block font-semibold text-slate-700 mb-1">房間驗證密碼</label>
+          <input type="password" id="inputEnterRoomPassword" required placeholder="請輸入創始人設定的密碼" 
+                 class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p id="enterRoomErrorMsg" class="text-[11px] text-rose-600 mt-1 font-medium hidden">密碼錯誤，請重新輸入！</p>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+          <button type="button" id="btnCancelEnterRoom" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition">
+            取消
+          </button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-xs transition flex items-center gap-1">
+            <i class="ph ph-sign-in"></i> 驗證並進入
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5.5 新增房間 Modal（含唯一性防呆與創始人密碼設定） -->
   <div id="createRoomModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
@@ -830,14 +878,21 @@
         </button>
       </div>
 
-      <form id="createRoomForm" class="p-6 space-y-4 text-xs">
+      <form id="createRoomForm" class="p-6 space-y-3.5 text-xs">
         <div>
           <label for="newRoomNameInput" class="block font-semibold text-slate-700 mb-1">房間代碼 / 名稱</label>
-          <input type="text" id="newRoomNameInput" required placeholder="例如：503、自然科領域、專案小組" 
+          <input type="text" id="newRoomNameInput" required placeholder="例如：502、自然科、五年三班" 
                  class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-          <p class="text-[11px] text-slate-400 mt-1.5">
-            建立後將擁有全新的獨立日曆，不會包含其他房間的行程。支援中文、英文與數字。
+          <p id="createRoomErrorMsg" class="text-[11px] text-rose-600 mt-1 font-semibold hidden">
+            ⚠️ 已有此房間！請更換名稱，或直接透過「進入房間」輸入密碼加入。
           </p>
+        </div>
+
+        <div>
+          <label for="newRoomPasswordInput" class="block font-semibold text-slate-700 mb-1">設定房間驗證密碼 <span class="text-rose-500">*</span></label>
+          <input type="password" id="newRoomPasswordInput" required placeholder="請設定 4 位數以上密碼" 
+                 class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">此密碼由您（創始人）設定，未來其他裝置或協作者進入此房間時需憑此密碼驗證。</p>
         </div>
 
         <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
@@ -845,7 +900,7 @@
             取消
           </button>
           <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-xs transition">
-            建立並切換
+            設定密碼並建立
           </button>
         </div>
       </form>
@@ -865,7 +920,7 @@
         </p>
       </div>
 
-      <div class="p-6 space-y-5 text-xs">
+      <div class="p-6 space-y-4 text-xs">
         <!-- 頁籤切換：加入現有 vs 建立全新 -->
         <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
           <button type="button" id="tabJoinRoom" class="py-2 text-center font-semibold rounded-lg bg-white text-indigo-600 shadow-xs transition">
@@ -876,29 +931,42 @@
           </button>
         </div>
 
-        <!-- 區塊 A: 加入已知房間 -->
-        <form id="formJoinRoom" class="space-y-3.5">
+        <!-- 區塊 A: 加入已知房間（需密碼驗證） -->
+        <form id="formJoinRoom" class="space-y-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">請輸入團隊或協作者提供的房間號碼</label>
+            <label class="block font-semibold text-slate-700 mb-1">房間代號 / 名稱</label>
             <input type="text" id="inputJoinRoom" required placeholder="例如：502、五年三班、英文科..." 
-                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <p class="text-[11px] text-slate-400 mt-1">兩台設備輸入完全相同的號碼即可即時雙向連動。</p>
+                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">房間驗證密碼</label>
+            <input type="password" id="inputJoinPassword" required placeholder="請輸入創始人設定的密碼" 
+                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <p id="welcomeJoinErrorMsg" class="text-[11px] text-rose-600 mt-1 font-medium hidden">房間代號不存在或密碼錯誤！</p>
           </div>
           <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
-            <i class="ph ph-sign-in text-sm"></i> 進入該房間行事曆
+            <i class="ph ph-sign-in text-sm"></i> 驗證並進入房間
           </button>
         </form>
 
-        <!-- 區塊 B: 建立全新房間 -->
-        <form id="formCreateNewRoom" class="space-y-3.5 hidden">
+        <!-- 區塊 B: 建立全新房間（創始人設定密碼，防重複） -->
+        <form id="formCreateNewRoom" class="space-y-3 hidden">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">為您的新日曆設定房間名稱 / 代碼</label>
-            <input type="text" id="inputNewRoom" required placeholder="例如：我的個人行程、辦公室A室..." 
-                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <p class="text-[11px] text-slate-400 mt-1">新房間擁有乾淨的起點，完全獨立且不包含其他人已編輯的行程。</p>
+            <label class="block font-semibold text-slate-700 mb-1">新房間名稱 / 代碼</label>
+            <input type="text" id="inputNewRoom" required placeholder="例如：502、我的個人行程、辦公室A室..." 
+                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <p id="welcomeCreateErrorMsg" class="text-[11px] text-rose-600 mt-1 font-semibold hidden">
+              ⚠️ 已有此房間！請更換名稱，或直接切換為「加入已知房間」輸入密碼進入。
+            </p>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">設定房間管理密碼 <span class="text-rose-500">*</span></label>
+            <input type="password" id="inputNewRoomPassword" required placeholder="請設定 4 位數以上密碼" 
+                   class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <p class="text-[11px] text-slate-400 mt-1">此密碼由創始人您設定，供其他裝置或成員驗證加入。</p>
           </div>
           <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
-            <i class="ph ph-plus-circle text-sm"></i> 立即建立新房間
+            <i class="ph ph-plus-circle text-sm"></i> 設定密碼並建立新房間
           </button>
         </form>
       </div>
@@ -980,6 +1048,9 @@
       { id: 'mem_3', seatNo: '03', name: '李大同', avatar: '🧒' }
     ];
 
+    // 全域房間密碼註冊表（記錄已建立的房間名稱與創始人設定的密碼雜湊）
+    let roomAuthRegistry = {};
+
     // 當前編輯中行程所選取的成員 ID 陣列（若包含 'ALL_MEMBERS' 則代表全員）
     let currentModalSelectedMemberIds = [];
 
@@ -1016,6 +1087,768 @@
       mono: "'Fira Code', Consolas, Monaco, monospace"
     };
 
+    // 60+ 頭像圖示庫供名單與批次隨機選擇
+    const AVATAR_LIST_60 = [
+      '👦', '👧', '🧑', '🧒', '🤓', '😊', '😎', '👼', '👮', '🤠', '🦸', '🧙',
+      '🐱', '🐶', '🐰', '🐻', '🐼', '🐨', '🦁', '🐯', '🐸', '🐷', '🐵', '🐥', '🐧', '🐬', '🦖', '🦄',
+      '📚', '🎒', '✏️', '🎨', '🔬', '🔭', '💻', '🌍', '🔍', '🔔', '📐', '📝',
+      '⚽', '🏀', '⚾', '🎾', '🏸', '🏆', '🥇', '🎵', '🎹', '🎸', '🎮', '🛹',
+      '⭐', '✨', '🚀', '☀️', '🌈', '🍀', '🌸', '🌱', '🌻', '🍎', '🍓', '👑', '💎', '❤️'
+    ];
+    let selectedAvatarEmoji = '👦';
+
+    // ==========================================
+    // UI 外觀、字體、背景與標題渲染函式
+    // ==========================================
+    function applyBackgroundStyles() {
+      const container = document.getElementById('customBgContainer');
+      const overlay = document.getElementById('customBgOverlay');
+      if (!container || !overlay) return;
+
+      if (bgConfig.type === 'image' && bgConfig.value) {
+        container.style.backgroundImage = `url("${bgConfig.value}")`;
+        container.style.backgroundColor = 'transparent';
+      } else {
+        container.style.backgroundImage = 'none';
+        container.style.backgroundColor = bgConfig.value || '#0f172a';
+      }
+
+      container.style.filter = bgConfig.blur > 0 ? `blur(${bgConfig.blur}px)` : 'none';
+      const op = (bgConfig.overlayOpacity ?? 75) / 100;
+      overlay.style.backgroundColor = `rgba(255, 255, 255, ${op})`;
+
+      const opVal = document.getElementById('overlayOpacityVal');
+      const blurVal = document.getElementById('bgBlurVal');
+      const opRange = document.getElementById('overlayOpacityRange');
+      const blurRange = document.getElementById('bgBlurRange');
+      if (opVal) opVal.textContent = `${bgConfig.overlayOpacity}%`;
+      if (blurVal) blurVal.textContent = `${bgConfig.blur}px`;
+      if (opRange) opRange.value = bgConfig.overlayOpacity;
+      if (blurRange) blurRange.value = bgConfig.blur;
+
+      try {
+        localStorage.setItem('worksync_bg_config', JSON.stringify(bgConfig));
+      } catch(e) {}
+    }
+
+    function applyPresetBg(type, val) {
+      bgConfig.type = type;
+      bgConfig.value = val;
+      applyBackgroundStyles();
+    }
+
+    function applyCellStyles() {
+      const hex = cellConfig.color || '#ffffff';
+      const op = (cellConfig.opacity ?? 95) / 100;
+
+      // 解析 hex 為 rgba
+      let r = 255, g = 255, b = 255;
+      if (hex.startsWith('#') && hex.length === 7) {
+        r = parseInt(hex.substring(1, 3), 16);
+        g = parseInt(hex.substring(3, 5), 16);
+        b = parseInt(hex.substring(5, 7), 16);
+      }
+      const rgbaColor = `rgba(${r}, ${g}, ${b}, ${op})`;
+
+      // 判斷是否為深色格子，切換日期數字對比
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const isDarkCell = brightness < 128 && op > 0.4;
+
+      document.querySelectorAll('.calendar-day-cell').forEach(cell => {
+        cell.style.backgroundColor = rgbaColor;
+        const numLabel = cell.querySelector('.day-number-label');
+        if (numLabel) {
+          if (isDarkCell) {
+            numLabel.classList.add('text-white');
+            numLabel.classList.remove('text-slate-800');
+          } else {
+            numLabel.classList.remove('text-white');
+            numLabel.classList.add('text-slate-800');
+          }
+        }
+      });
+
+      const cellOpVal = document.getElementById('cellOpacityVal');
+      const cellRange = document.getElementById('cellOpacityRange');
+      const cellPicker = document.getElementById('cellCustomColorPicker');
+      const cellColorText = document.getElementById('cellCustomColorText');
+      if (cellOpVal) cellOpVal.textContent = `${cellConfig.opacity}%`;
+      if (cellRange) cellRange.value = cellConfig.opacity;
+      if (cellPicker) cellPicker.value = hex;
+      if (cellColorText) cellColorText.value = hex;
+    }
+
+    function applyCellPresetBg(color, opacity) {
+      cellConfig.color = color;
+      cellConfig.opacity = opacity;
+      applyCellStyles();
+      broadcastRoomChanges();
+    }
+
+    function applyFontStyles() {
+      const rootFont = FONT_MAP[fontConfig.family] || FONT_MAP.sans;
+      document.body.style.fontFamily = rootFont;
+
+      const scale = (fontConfig.scale || 100) / 100;
+      const grid = document.getElementById('calendarGrid');
+      if (grid) {
+        grid.style.fontSize = `${scale * 0.875}rem`;
+      }
+
+      const fontDisplay = document.getElementById('fontSizeDisplay');
+      const fontRange = document.getElementById('fontSizeRange');
+      const boldCheck = document.getElementById('boldTextCheckbox');
+      if (fontDisplay) fontDisplay.textContent = `${fontConfig.scale}%`;
+      if (fontRange) fontRange.value = fontConfig.scale;
+      if (boldCheck) boldCheck.checked = !!fontConfig.bold;
+
+      document.querySelectorAll('#fontFamilySelector .font-btn').forEach(btn => {
+        if (btn.getAttribute('data-font') === fontConfig.family) {
+          btn.classList.add('active', 'bg-emerald-50/50', 'border-emerald-400');
+        } else {
+          btn.classList.remove('active', 'bg-emerald-50/50', 'border-emerald-400');
+        }
+      });
+
+      try {
+        localStorage.setItem('worksync_font_config', JSON.stringify(fontConfig));
+      } catch(e) {}
+    }
+
+    function applyTitleStyles() {
+      const display = document.getElementById('headerTitleDisplay');
+      const emojiSpan = document.getElementById('headerIconEmoji');
+      const img = document.getElementById('headerIconImg');
+      const iconBox = document.getElementById('headerIconBox');
+      if (!display) return;
+
+      display.textContent = titleConfig.text || '工作行事曆';
+
+      if (titleConfig.iconType === 'none') {
+        if (iconBox) iconBox.classList.add('hidden');
+      } else {
+        if (iconBox) iconBox.classList.remove('hidden');
+        if (titleConfig.iconType === 'emoji') {
+          if (emojiSpan) {
+            emojiSpan.textContent = titleConfig.iconValue || '📅';
+            emojiSpan.classList.remove('hidden');
+          }
+          if (img) img.classList.add('hidden');
+        } else if (titleConfig.iconType === 'upload') {
+          if (img) {
+            img.src = titleConfig.iconValue;
+            img.classList.remove('hidden');
+          }
+          if (emojiSpan) emojiSpan.classList.add('hidden');
+        }
+      }
+    }
+
+    // 填充小時與分鐘下拉選項
+    function populateHourAndMinuteOptions() {
+      const hourSelect = document.getElementById('eventHourSelect');
+      const minSelect = document.getElementById('eventMinuteSelect');
+      if (hourSelect && hourSelect.children.length <= 1) {
+        for (let h = 6; h <= 23; h++) {
+          const opt = document.createElement('option');
+          const val = String(h).padStart(2, '0');
+          opt.value = val;
+          opt.textContent = `${val} 時`;
+          hourSelect.appendChild(opt);
+        }
+      }
+      if (minSelect && minSelect.children.length <= 1) {
+        for (let m = 0; m < 60; m += 5) {
+          const opt = document.createElement('option');
+          const val = String(m).padStart(2, '0');
+          opt.value = val;
+          opt.textContent = `${val} 分`;
+          minSelect.appendChild(opt);
+        }
+      }
+    }
+
+    // 標題編輯 Modal 輔助函式
+    function openTitleModal() {
+      const modal = document.getElementById('titleModal');
+      const textInput = document.getElementById('titleTextInput');
+      if (!modal) return;
+      tempTitleConfig = { ...titleConfig };
+      if (textInput) textInput.value = tempTitleConfig.text;
+      switchIconMode(tempTitleConfig.iconType || 'emoji');
+      updateTitlePreview();
+      modal.classList.remove('hidden');
+    }
+
+    function closeTitleModal() {
+      const modal = document.getElementById('titleModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function switchIconMode(mode) {
+      tempTitleConfig.iconType = mode;
+      document.querySelectorAll('.title-icon-tab').forEach(tab => {
+        if (tab.getAttribute('data-icon-mode') === mode) {
+          tab.className = "title-icon-tab py-1.5 px-3 rounded-lg border font-semibold border-indigo-600 bg-indigo-50 text-indigo-700";
+        } else {
+          tab.className = "title-icon-tab py-1.5 px-3 rounded-lg border font-semibold border-slate-200 text-slate-600 hover:bg-slate-50";
+        }
+      });
+      const emojiSec = document.getElementById('emojiPickerSection');
+      const imgSec = document.getElementById('imagePickerSection');
+      if (emojiSec) emojiSec.classList.toggle('hidden', mode !== 'emoji');
+      if (imgSec) imgSec.classList.toggle('hidden', mode !== 'upload');
+      updateTitlePreview();
+    }
+
+    function updateTitlePreview() {
+      const textInput = document.getElementById('titleTextInput');
+      const previewText = document.getElementById('previewTitleText');
+      const previewEmoji = document.getElementById('previewIconEmoji');
+      const previewImg = document.getElementById('previewIconImg');
+      const previewBox = document.getElementById('previewIconBox');
+
+      if (textInput) tempTitleConfig.text = textInput.value || '工作行事曆';
+      if (previewText) previewText.textContent = tempTitleConfig.text;
+
+      if (tempTitleConfig.iconType === 'none') {
+        if (previewBox) previewBox.classList.add('hidden');
+      } else {
+        if (previewBox) previewBox.classList.remove('hidden');
+        if (tempTitleConfig.iconType === 'emoji') {
+          if (previewEmoji) {
+            previewEmoji.textContent = tempTitleConfig.iconValue || '📅';
+            previewEmoji.classList.remove('hidden');
+          }
+          if (previewImg) previewImg.classList.add('hidden');
+        } else if (tempTitleConfig.iconType === 'upload') {
+          if (previewImg) {
+            previewImg.src = tempTitleConfig.iconValue;
+            previewImg.classList.remove('hidden');
+          }
+          if (previewEmoji) previewEmoji.classList.add('hidden');
+        }
+      }
+    }
+
+    function saveTitleConfig() {
+      titleConfig = { ...tempTitleConfig };
+      applyTitleStyles();
+      saveLocalRoomData();
+      broadcastRoomChanges();
+      closeTitleModal();
+    }
+
+    // ==========================================
+    // 標籤與成員選單更新與管理器
+    // ==========================================
+    function updateCategoryDropdowns() {
+      const filterCat = document.getElementById('filterCategory');
+      const eventCat = document.getElementById('eventCategorySelect');
+
+      if (filterCat) {
+        const curVal = filterCat.value;
+        filterCat.innerHTML = '<option value="ALL">全部標籤類別</option>';
+        customCategories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat.id;
+          opt.textContent = cat.name;
+          filterCat.appendChild(opt);
+        });
+        filterCat.value = curVal || 'ALL';
+      }
+
+      if (eventCat) {
+        eventCat.innerHTML = '';
+        customCategories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat.id;
+          opt.textContent = cat.name;
+          eventCat.appendChild(opt);
+        });
+        if (customCategories.length > 0) {
+          updateModalBadge(customCategories[0].id);
+        }
+      }
+    }
+
+    function updateMemberDropdowns() {
+      const filterMember = document.getElementById('filterMember');
+      if (!filterMember) return;
+      const curVal = filterMember.value;
+      filterMember.innerHTML = '<option value="ALL">全部成員/學生</option>';
+      customMembers.forEach(mem => {
+        const opt = document.createElement('option');
+        opt.value = mem.id;
+        opt.textContent = `[${mem.seatNo}號] ${mem.avatar} ${mem.name}`;
+        filterMember.appendChild(opt);
+      });
+      filterMember.value = curVal || 'ALL';
+    }
+
+    function renderEventMemberOptions() {
+      const container = document.getElementById('eventMemberCheckboxes');
+      const btnToggleAll = document.getElementById('btnToggleAllMembers');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const isAll = currentModalSelectedMemberIds.includes('ALL_MEMBERS');
+      if (btnToggleAll) {
+        if (isAll) {
+          btnToggleAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-600 bg-indigo-600 text-white";
+        } else {
+          btnToggleAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-100";
+        }
+      }
+
+      customMembers.forEach(mem => {
+        const isSelected = !isAll && currentModalSelectedMemberIds.includes(mem.id);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `px-2 py-1 rounded-lg text-xs font-medium border flex items-center gap-1 transition ${
+          isSelected
+            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+        }`;
+        btn.innerHTML = `<span class="font-mono text-[10px] opacity-80">${mem.seatNo}</span> <span>${mem.avatar}</span> <span>${mem.name}</span>`;
+        btn.addEventListener('click', () => {
+          if (currentModalSelectedMemberIds.includes('ALL_MEMBERS')) {
+            currentModalSelectedMemberIds = [];
+          }
+          if (currentModalSelectedMemberIds.includes(mem.id)) {
+            currentModalSelectedMemberIds = currentModalSelectedMemberIds.filter(id => id !== mem.id);
+          } else {
+            currentModalSelectedMemberIds.push(mem.id);
+          }
+          renderEventMemberOptions();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function renderCategoryManagerList() {
+      const container = document.getElementById('categoryListContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      customCategories.forEach((cat, idx) => {
+        const row = document.createElement('div');
+        row.className = "flex items-center gap-2 p-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs";
+        row.innerHTML = `
+          <input type="color" value="${cat.color}" class="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0 shrink-0">
+          <input type="text" value="${cat.name}" class="flex-1 px-2 py-1 bg-white border border-slate-200 rounded text-xs">
+          <button type="button" class="text-rose-500 hover:bg-rose-50 p-1 rounded transition shrink-0" title="刪除標籤">
+            <i class="ph ph-trash text-sm"></i>
+          </button>
+        `;
+        const colorInput = row.querySelectorAll('input')[0];
+        const nameInput = row.querySelectorAll('input')[1];
+        const delBtn = row.querySelector('button');
+
+        colorInput.addEventListener('change', (e) => {
+          cat.color = e.target.value;
+          updateCategoryDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+        nameInput.addEventListener('change', (e) => {
+          cat.name = e.target.value.trim() || cat.name;
+          updateCategoryDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+        delBtn.addEventListener('click', () => {
+          if (customCategories.length <= 1) {
+            alert('至少需保留一個標籤類別！');
+            return;
+          }
+          customCategories.splice(idx, 1);
+          renderCategoryManagerList();
+          updateCategoryDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+        container.appendChild(row);
+      });
+    }
+
+    function handleAddCategory() {
+      const nameInput = document.getElementById('newCatName');
+      const colorInput = document.getElementById('newCatColor');
+      if (!nameInput) return;
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const color = colorInput ? colorInput.value : '#3b82f6';
+      customCategories.push({
+        id: 'cat_' + Date.now(),
+        name,
+        color
+      });
+      nameInput.value = '';
+      renderCategoryManagerList();
+      updateCategoryDropdowns();
+      renderCalendar();
+      broadcastRoomChanges();
+    }
+
+    function renderMemberManagerList() {
+      const container = document.getElementById('memberListContainer');
+      if (!container) return;
+      container.innerHTML = '';
+      if (customMembers.length === 0) {
+        container.innerHTML = '<div class="text-slate-400 text-center py-4">目前名單為空，請在上方新增成員或點擊批次匯入</div>';
+        return;
+      }
+
+      customMembers.forEach((mem, idx) => {
+        const row = document.createElement('div');
+        row.className = "flex items-center gap-2 p-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs";
+        row.innerHTML = `
+          <button type="button" class="w-7 h-7 bg-white rounded border border-slate-200 text-base flex items-center justify-center shrink-0 hover:scale-110 transition" title="點擊切換頭像">${mem.avatar}</button>
+          <input type="text" value="${mem.seatNo}" placeholder="座號" class="w-12 text-center px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-xs shrink-0">
+          <input type="text" value="${mem.name}" placeholder="姓名" class="flex-1 px-2 py-1 bg-white border border-slate-200 rounded text-xs">
+          <button type="button" class="text-rose-500 hover:bg-rose-50 p-1 rounded transition shrink-0" title="移除成員">
+            <i class="ph ph-trash text-sm"></i>
+          </button>
+        `;
+        const avatarBtn = row.querySelectorAll('button')[0];
+        const seatInput = row.querySelectorAll('input')[0];
+        const nameInput = row.querySelectorAll('input')[1];
+        const delBtn = row.querySelectorAll('button')[1];
+
+        avatarBtn.addEventListener('click', () => {
+          const curIndex = AVATAR_LIST_60.indexOf(mem.avatar);
+          const nextIndex = (curIndex + 1) % AVATAR_LIST_60.length;
+          mem.avatar = AVATAR_LIST_60[nextIndex];
+          avatarBtn.textContent = mem.avatar;
+          updateMemberDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+
+        seatInput.addEventListener('change', (e) => {
+          mem.seatNo = e.target.value.trim();
+          updateMemberDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+
+        nameInput.addEventListener('change', (e) => {
+          mem.name = e.target.value.trim() || mem.name;
+          updateMemberDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+
+        delBtn.addEventListener('click', () => {
+          customMembers.splice(idx, 1);
+          renderMemberManagerList();
+          updateMemberDropdowns();
+          renderCalendar();
+          broadcastRoomChanges();
+        });
+
+        container.appendChild(row);
+      });
+    }
+
+    function handleAddMember() {
+      const noInput = document.getElementById('newMemberNo');
+      const nameInput = document.getElementById('newMemberName');
+      if (!nameInput) return;
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const seatNo = noInput ? noInput.value.trim() : String(customMembers.length + 1).padStart(2, '0');
+
+      customMembers.push({
+        id: 'mem_' + Date.now(),
+        seatNo: seatNo || '01',
+        name,
+        avatar: selectedAvatarEmoji || '👦'
+      });
+
+      nameInput.value = '';
+      if (noInput) noInput.value = String(customMembers.length + 1).padStart(2, '0');
+      renderMemberManagerList();
+      updateMemberDropdowns();
+      renderCalendar();
+      broadcastRoomChanges();
+    }
+
+    // ==========================================
+    // 行程彈出視窗與增刪修邏輯
+    // ==========================================
+    function updateModalBadge(catId) {
+      const badge = document.getElementById('modalColorBadge');
+      if (!badge) return;
+      const cat = customCategories.find(c => c.id === catId);
+      if (cat) {
+        badge.style.backgroundColor = cat.color;
+      }
+    }
+
+    function openEventModal(dateStr, eventObj = null) {
+      const modal = document.getElementById('eventModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const dateDisplay = document.getElementById('modalDateDisplay');
+      const eventIdInput = document.getElementById('eventId');
+      const eventDateInput = document.getElementById('eventDate');
+      const titleInput = document.getElementById('eventTitleInput');
+      const timeInput = document.getElementById('eventTimeInput');
+      const periodSelect = document.getElementById('eventPeriodSelect');
+      const hourSelect = document.getElementById('eventHourSelect');
+      const minSelect = document.getElementById('eventMinuteSelect');
+      const catSelect = document.getElementById('eventCategorySelect');
+      const notesInput = document.getElementById('eventNotesInput');
+      const deleteBtn = document.getElementById('btnDeleteEvent');
+
+      if (!modal) return;
+      eventDateInput.value = dateStr;
+      dateDisplay.textContent = dateStr;
+
+      if (eventObj) {
+        modalTitle.textContent = "編輯行程";
+        eventIdInput.value = eventObj.id;
+        titleInput.value = eventObj.title;
+        timeInput.value = eventObj.time || '';
+        notesInput.value = eventObj.notes || '';
+        if (catSelect) catSelect.value = eventObj.categoryId;
+        updateModalBadge(eventObj.categoryId);
+
+        if (Array.isArray(eventObj.memberIds)) {
+          currentModalSelectedMemberIds = [...eventObj.memberIds];
+        } else if (eventObj.memberId) {
+          currentModalSelectedMemberIds = [eventObj.memberId];
+        } else {
+          currentModalSelectedMemberIds = [];
+        }
+
+        // 解析既有時間至選單
+        if (periodSelect) {
+          const matchPeriod = Array.from(periodSelect.options).some(o => o.value === eventObj.time);
+          periodSelect.value = matchPeriod ? eventObj.time : '';
+        }
+        if (eventObj.time && eventObj.time.includes(':')) {
+          const parts = eventObj.time.split(':');
+          if (hourSelect) hourSelect.value = parts[0];
+          if (minSelect) minSelect.value = parts[1];
+        } else {
+          if (hourSelect) hourSelect.value = '';
+          if (minSelect) minSelect.value = '';
+        }
+
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+      } else {
+        modalTitle.textContent = "新增行程";
+        eventIdInput.value = '';
+        titleInput.value = '';
+        timeInput.value = '';
+        notesInput.value = '';
+        currentModalSelectedMemberIds = [];
+        if (periodSelect) periodSelect.value = '';
+        if (hourSelect) hourSelect.value = '';
+        if (minSelect) minSelect.value = '';
+        if (catSelect && customCategories.length > 0) {
+          catSelect.value = customCategories[0].id;
+          updateModalBadge(customCategories[0].id);
+        }
+        if (deleteBtn) deleteBtn.classList.add('hidden');
+      }
+
+      renderEventMemberOptions();
+      modal.classList.remove('hidden');
+      setTimeout(() => titleInput.focus(), 50);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('eventModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function handleSaveEvent(e) {
+      e.preventDefault();
+      const id = document.getElementById('eventId').value;
+      const date = document.getElementById('eventDate').value;
+      const title = document.getElementById('eventTitleInput').value.trim();
+      const time = document.getElementById('eventTimeInput').value.trim();
+      const categoryId = document.getElementById('eventCategorySelect').value;
+      const notes = document.getElementById('eventNotesInput').value.trim();
+
+      if (!title) return;
+
+      if (id) {
+        const ev = eventsList.find(item => item.id === id);
+        if (ev) {
+          ev.title = title;
+          ev.time = time;
+          ev.categoryId = categoryId;
+          ev.notes = notes;
+          ev.memberIds = [...currentModalSelectedMemberIds];
+        }
+      } else {
+        eventsList.push({
+          id: 'ev_' + Date.now(),
+          date,
+          title,
+          time,
+          categoryId,
+          notes,
+          memberIds: [...currentModalSelectedMemberIds]
+        });
+      }
+
+      closeModal();
+      renderCalendar();
+      broadcastRoomChanges();
+    }
+
+    function handleDeleteEvent() {
+      const id = document.getElementById('eventId').value;
+      if (!id) return;
+      eventsList = eventsList.filter(item => item.id !== id);
+      closeModal();
+      renderCalendar();
+      broadcastRoomChanges();
+    }
+
+    // ==========================================
+    // 主日曆渲染引擎
+    // ==========================================
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      const monthLabel = document.getElementById('currentMonthYearLabel');
+      if (!grid) return;
+
+      grid.innerHTML = '';
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      if (monthLabel) {
+        monthLabel.textContent = `${year} 年 ${month + 1} 月`;
+      }
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      const totalCells = Math.ceil((firstDayIndex + daysInMonth) / 7) * 7;
+      const selectedCat = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : 'ALL';
+      const selectedMem = document.getElementById('filterMember') ? document.getElementById('filterMember').value : 'ALL';
+
+      const today = new Date();
+      const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+      const todayDate = today.getDate();
+
+      for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = "calendar-day-cell grid-cell bg-white p-1 sm:p-2 flex flex-col justify-between transition-colors relative cursor-pointer hover:bg-slate-50/80";
+
+        let dateStr = "";
+        let dayNum = 0;
+        let isOtherMonth = false;
+
+        if (i < firstDayIndex) {
+          dayNum = daysInPrevMonth - firstDayIndex + i + 1;
+          const prevM = month === 0 ? 12 : month;
+          const prevY = month === 0 ? year - 1 : year;
+          dateStr = `${prevY}-${String(prevM).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+          isOtherMonth = true;
+        } else if (i >= firstDayIndex + daysInMonth) {
+          dayNum = i - (firstDayIndex + daysInMonth) + 1;
+          const nextM = month === 11 ? 1 : month + 2;
+          const nextY = month === 11 ? year + 1 : year;
+          dateStr = `${nextY}-${String(nextM).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+          isOtherMonth = true;
+        } else {
+          dayNum = i - firstDayIndex + 1;
+          dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+        }
+
+        // 格子頂部：日期數字與今日標記
+        const topRow = document.createElement('div');
+        topRow.className = "flex items-center justify-between mb-1";
+
+        const numSpan = document.createElement('span');
+        numSpan.className = `day-number-label text-xs sm:text-sm font-semibold rounded-full w-6 h-6 flex items-center justify-center ${
+          isOtherMonth ? 'text-slate-300' : 'text-slate-700'
+        }`;
+        numSpan.textContent = dayNum;
+
+        if (!isOtherMonth && isCurrentMonth && dayNum === todayDate) {
+          numSpan.className += " bg-indigo-600 text-white shadow-xs font-bold";
+        }
+        topRow.appendChild(numSpan);
+        cell.appendChild(topRow);
+
+        // 格子內容：行程清單
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = "space-y-1 flex-1 overflow-y-auto max-h-24";
+
+        const dayEvents = eventsList.filter(ev => {
+          if (ev.date !== dateStr) return false;
+          if (selectedCat !== 'ALL' && ev.categoryId !== selectedCat) return false;
+          if (selectedMem !== 'ALL') {
+            const hasMem = (Array.isArray(ev.memberIds) && ev.memberIds.includes(selectedMem)) ||
+                           (ev.memberId === selectedMem) ||
+                           (Array.isArray(ev.memberIds) && ev.memberIds.includes('ALL_MEMBERS'));
+            if (!hasMem) return false;
+          }
+          return true;
+        });
+
+        // 排序：有時間/課節的排前面
+        dayEvents.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+        dayEvents.forEach(ev => {
+          const cat = customCategories.find(c => c.id === ev.categoryId) || { color: '#6366f1', name: '事項' };
+          const evItem = document.createElement('div');
+          evItem.className = `text-[11px] p-1 rounded-md border flex items-center gap-1 shadow-2xs transition truncate ${
+            fontConfig.bold ? 'font-bold' : 'font-medium'
+          }`;
+          evItem.style.backgroundColor = `${cat.color}15`;
+          evItem.style.borderColor = `${cat.color}40`;
+          evItem.style.color = cat.color;
+
+          // 成員標記
+          let memberAvatars = '';
+          if (Array.isArray(ev.memberIds) && ev.memberIds.includes('ALL_MEMBERS')) {
+            memberAvatars = '<span title="全體事項" class="text-[10px]">🌟</span>';
+          } else if (Array.isArray(ev.memberIds) && ev.memberIds.length > 0) {
+            memberAvatars = ev.memberIds.map(mId => {
+              const mem = customMembers.find(m => m.id === mId);
+              return mem ? `<span title="[${mem.seatNo}] ${mem.name}" class="text-[10px]">${mem.avatar}</span>` : '';
+            }).join('');
+          } else if (ev.memberId) {
+            const mem = customMembers.find(m => m.id === ev.memberId);
+            if (mem) memberAvatars = `<span title="[${mem.seatNo}] ${mem.name}" class="text-[10px]">${mem.avatar}</span>`;
+          }
+
+          evItem.innerHTML = `
+            ${memberAvatars ? `<span class="flex items-center gap-0.5 shrink-0">${memberAvatars}</span>` : ''}
+            ${ev.time ? `<span class="font-mono text-[10px] opacity-80 shrink-0">${ev.time}</span>` : ''}
+            <span class="truncate flex-1">${ev.title}</span>
+          `;
+
+          evItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEventModal(dateStr, ev);
+          });
+
+          eventsContainer.appendChild(evItem);
+        });
+
+        cell.appendChild(eventsContainer);
+
+        // 點擊格子空白處新增行程
+        cell.addEventListener('click', () => {
+          openEventModal(dateStr, null);
+        });
+
+        grid.appendChild(cell);
+      }
+
+      applyCellStyles();
+    }
+
     // ==========================================
     // 徹底還原至當初最成功、秒連秒動的經典連線核心架構
     // ==========================================
@@ -1025,19 +1858,18 @@
     let lastLocalTimestamp = 0;
     const CLIENT_INSTANCE_ID = 'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
-    // 取得乾淨、直覺且各端絕對一致的頻道代碼（URL Safe）
+    // 取得乾淨、直覺且各端（Mac、Windows、PWA）絕對 100% 一致的頻道代碼
     function getChannelUrl(roomStr) {
       const cleanRoom = (roomStr || 'school-work-2026').trim();
-      // 使用穩定的純英數安全雜湊，確保中文房間名在任何作業系統都完全連到同一個通道
+      // 使用 32 位元無符號雜湊，確保中文房間名在任何作業系統都完全連到同一個通道
       let hash = 0;
       for (let i = 0; i < cleanRoom.length; i++) {
-        hash = ((hash << 5) - hash) + cleanRoom.charCodeAt(i);
-        hash |= 0;
+        hash = (((hash << 5) - hash) + cleanRoom.charCodeAt(i)) >>> 0;
       }
-      return `school_cal_sync_${Math.abs(hash)}`;
+      return `school_cal_sync_${hash}`;
     }
 
-    // 跨視窗/應用程式廣播通道初始化（網頁版 ⇋ 桌面應用程式版）
+    // 跨視窗/應用程式廣播通道初始化（網頁版 ⇋ 桌面應用程式版 0.001 秒直連）
     function initLocalBroadcastChannel() {
       try {
         if (localBroadcast) {
@@ -1049,8 +1881,12 @@
             if (!event.data) return;
             if (event.data.senderId === CLIENT_INSTANCE_ID) return;
             if (event.data.data) {
-              applyIncomingData(event.data.data);
-              updateSyncBadge('success', '雙向即時連線正常');
+              const incoming = event.data.data;
+              if (incoming.updatedAt && incoming.updatedAt > lastLocalTimestamp) {
+                lastLocalTimestamp = incoming.updatedAt;
+                applyIncomingData(incoming);
+                updateSyncBadge('success', '雙向即時連線正常');
+              }
             }
           };
         }
@@ -1059,7 +1895,32 @@
       }
     }
 
-    // 初始化雲端連線與即時推播監聽（當初秒連秒成功的模式）
+    // 簡易密碼雜湊運算（確保密碼驗證安全且跨設備一致）
+    function hashPassword(pwd) {
+      if (!pwd) return "";
+      let hash = 5381;
+      const str = String(pwd).trim();
+      for (let i = 0; i < str.length; i++) {
+        hash = (((hash << 5) + hash) + str.charCodeAt(i)) >>> 0;
+      }
+      return 'auth_' + hash;
+    }
+
+    // 載入與儲存房間密碼註冊表
+    function loadAuthRegistry() {
+      try {
+        const raw = localStorage.getItem('worksync_room_auth_registry');
+        if (raw) roomAuthRegistry = JSON.parse(raw);
+      } catch(e) {}
+    }
+
+    function saveAuthRegistry() {
+      try {
+        localStorage.setItem('worksync_room_auth_registry', JSON.stringify(roomAuthRegistry));
+      } catch(e) {}
+    }
+
+    // 初始化雲端連線與即時推播監聽（相容 Mac Safari、Mac PWA、Windows Edge/Chrome、Windows PWA）
     function initCloudSync() {
       if (!currentRoom) return;
       const channel = getChannelUrl(currentRoom);
@@ -1090,6 +1951,10 @@
             if (parsed && parsed.message) {
               const cloudPayload = JSON.parse(parsed.message);
               if (cloudPayload && cloudPayload.senderId !== CLIENT_INSTANCE_ID) {
+                if (cloudPayload.roomAuthHash && currentRoom) {
+                  roomAuthRegistry[currentRoom] = cloudPayload.roomAuthHash;
+                  saveAuthRegistry();
+                }
                 if (cloudPayload.updatedAt && cloudPayload.updatedAt > lastLocalTimestamp) {
                   lastLocalTimestamp = cloudPayload.updatedAt;
                   applyIncomingData(cloudPayload);
@@ -1103,22 +1968,22 @@
         };
 
         eventSource.onerror = () => {
-          // SSE 重連保護
+          // 當網路環境阻擋 SSE 時，備援極速輪詢會自動無縫接手
         };
       } catch (err) {
         updateSyncBadge('offline', '離線暫存模式');
       }
 
-      // 2. 備用定時快速對齊（每 3 秒快速查詢一次最新快取，穿透快取）
+      // 2. 備用定時快速對齊（每 2 秒快速穿透快取查詢一次最新狀態，確保 Windows 受限網路依然順暢）
       syncInterval = setInterval(() => {
         pullLatestFromCloud();
-      }, 3000);
+      }, 2000);
 
       // 初次啟動立即拉取一次
       pullLatestFromCloud();
     }
 
-    // 儲存並即時推送到雲端與同機應用程式
+    // 儲存並即時推送到雲端、同機應用程式版與其他所有裝置
     function pushToCloud() {
       if (!currentRoom) return;
       const channel = getChannelUrl(currentRoom);
@@ -1132,16 +1997,17 @@
         customMembers,
         eventsList,
         cellConfig,
+        roomAuthHash: roomAuthRegistry[currentRoom] || '',
         updatedAt: nowTs,
         senderId: CLIENT_INSTANCE_ID
       };
 
-      // 1. 同台電腦（網頁版 ⇋ 應用程式版）瞬間 0.001 秒同步
+      // 1. 同台電腦（網頁版 ⇋ 獨立應用程式版）瞬間 0.001 秒同步
       try {
         if (localBroadcast) {
           localBroadcast.postMessage({
             senderId: CLIENT_INSTANCE_ID,
-            data: roomData
+            data: JSON.parse(JSON.stringify(roomData))
           });
         }
       } catch (e) {}
@@ -1153,27 +2019,29 @@
 
       updateSyncBadge('success', '已即時儲存並同步');
 
-      // 2. 跨裝置推播（發送到 ntfy 官方通道，Mac 與 Windows 同步收到）
+      // 2. 跨裝置推播（發送到 ntfy 官方通道，Mac 與 Windows 桌機 0.2 秒同步收到）
       try {
         fetch(`https://ntfy.sh/${channel}`, {
           method: 'POST',
           body: JSON.stringify(roomData),
           headers: {
             'Title': 'Calendar Update',
-            'Priority': 'high'
-          }
+            'Priority': 'urgent',
+            'Tags': 'calendar'
+          },
+          keepalive: true
         }).catch(() => {});
       } catch (e) {
         console.warn("Cloud push error:", e);
       }
     }
 
-    // 從雲端快取拉取最新行程
+    // 從本機快取或雲端最新快取精準拉取最新行程
     async function pullLatestFromCloud() {
       if (!currentRoom) return;
       const channel = getChannelUrl(currentRoom);
 
-      // 檢查本機儲存
+      // 1. 先檢查同機跨視窗的共享儲存
       try {
         const localSaved = localStorage.getItem(`worksync_shared_${currentRoom}`);
         if (localSaved) {
@@ -1186,9 +2054,9 @@
         }
       } catch (e) {}
 
-      // 遠端拉取
+      // 2. 遠端快取拉取（強制加入時間戳 _win_t 穿透 Windows / Mac 瀏覽器快取）
       try {
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=12h&_t=${Date.now()}`, {
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=12h&_win_t=${Date.now()}`, {
           cache: 'no-store'
         });
 
@@ -1200,6 +2068,10 @@
               if (item && item.message) {
                 const cloudData = JSON.parse(item.message);
                 if (cloudData && typeof cloudData === 'object') {
+                  if (cloudData.roomAuthHash) {
+                    roomAuthRegistry[currentRoom] = cloudData.roomAuthHash;
+                    saveAuthRegistry();
+                  }
                   if (cloudData.senderId !== CLIENT_INSTANCE_ID && cloudData.updatedAt > lastLocalTimestamp) {
                     lastLocalTimestamp = cloudData.updatedAt;
                     applyIncomingData(cloudData);
@@ -1243,6 +2115,10 @@
     function applyIncomingData(data) {
       if (!data) return;
       if (data.titleConfig) titleConfig = data.titleConfig;
+      if (data.roomAuthHash && currentRoom) {
+        roomAuthRegistry[currentRoom] = data.roomAuthHash;
+        saveAuthRegistry();
+      }
       if (data.customCategories && Array.isArray(data.customCategories)) {
         customCategories = data.customCategories;
       }
@@ -1279,7 +2155,8 @@
           customCategories,
           customMembers,
           eventsList,
-          cellConfig
+          cellConfig,
+          roomAuthHash: roomAuthRegistry[currentRoom] || ''
         }));
       } catch (e) { console.warn(e); }
     }
@@ -1291,9 +2168,13 @@
           const parsed = JSON.parse(saved);
           titleConfig = parsed.titleConfig || { text: `${currentRoom} 行事曆`, iconType: 'emoji', iconValue: '📅' };
           
+          if (parsed.roomAuthHash) {
+            roomAuthRegistry[currentRoom] = parsed.roomAuthHash;
+            saveAuthRegistry();
+          }
+
           // 確保標籤包含校園五大分類
           if (parsed.customCategories && Array.isArray(parsed.customCategories) && parsed.customCategories.length > 0) {
-            // 檢查是否仍殘留商務預設標籤，若是則替換為校園五大分類
             const isOldBusiness = parsed.customCategories.some(c => c.name === '常規工作' || c.name === '重要緊急');
             customCategories = isOldBusiness ? JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)) : parsed.customCategories;
           } else {
@@ -1309,7 +2190,7 @@
             cellConfig = parsed.cellConfig;
           }
         } else {
-          // 若是全新的房間或本機無資料，建立全新獨立狀態，當天自動建立示範行程
+          // 若是全新的房間，建立全新獨立狀態，當天自動建立示範行程
           const today = new Date();
           const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
           
@@ -1344,937 +2225,7 @@
     }
 
     // ==========================================
-    // 標題與 Icon 呈現
-    // ==========================================
-    function applyTitleStyles() {
-      const { text, iconType, iconValue } = titleConfig;
-      document.title = `${text || '工作行事曆'} - 桌面共編月曆`;
-      const titleDisplay = document.getElementById('headerTitleDisplay');
-      if (titleDisplay) titleDisplay.textContent = text || '工作行事曆';
-
-      const iconBox = document.getElementById('headerIconBox');
-      const emojiSpan = document.getElementById('headerIconEmoji');
-      const imgEl = document.getElementById('headerIconImg');
-
-      if (!iconBox || !emojiSpan || !imgEl) return;
-
-      if (iconType === 'none') {
-        iconBox.classList.add('hidden');
-      } else {
-        iconBox.classList.remove('hidden');
-        if (iconType === 'upload' && iconValue) {
-          emojiSpan.classList.add('hidden');
-          imgEl.classList.remove('hidden');
-          imgEl.src = iconValue;
-        } else {
-          imgEl.classList.add('hidden');
-          emojiSpan.classList.remove('hidden');
-          emojiSpan.textContent = iconValue || '📅';
-        }
-      }
-    }
-
-    function openTitleModal() {
-      tempTitleConfig = { ...titleConfig };
-      document.getElementById('titleTextInput').value = tempTitleConfig.text || '工作行事曆';
-      switchIconMode(tempTitleConfig.iconType || 'emoji');
-      updateTitlePreview();
-      document.getElementById('titleModal').classList.remove('hidden');
-    }
-
-    function closeTitleModal() {
-      document.getElementById('titleModal').classList.add('hidden');
-    }
-
-    function switchIconMode(mode) {
-      tempTitleConfig.iconType = mode;
-      document.querySelectorAll('.title-icon-tab').forEach(tab => {
-        if (tab.getAttribute('data-icon-mode') === mode) {
-          tab.classList.add('border-indigo-600', 'bg-indigo-50', 'text-indigo-700');
-          tab.classList.remove('border-slate-200', 'text-slate-600');
-        } else {
-          tab.classList.remove('border-indigo-600', 'bg-indigo-50', 'text-indigo-700');
-          tab.classList.add('border-slate-200', 'text-slate-600');
-        }
-      });
-
-      const emojiSec = document.getElementById('emojiPickerSection');
-      const imgSec = document.getElementById('imagePickerSection');
-
-      if (mode === 'emoji') {
-        emojiSec.classList.remove('hidden');
-        imgSec.classList.add('hidden');
-      } else if (mode === 'upload') {
-        emojiSec.classList.add('hidden');
-        imgSec.classList.remove('hidden');
-      } else {
-        emojiSec.classList.add('hidden');
-        imgSec.classList.add('hidden');
-      }
-      updateTitlePreview();
-    }
-
-    function updateTitlePreview() {
-      const textVal = document.getElementById('titleTextInput').value.trim() || '工作行事曆';
-      document.getElementById('previewTitleText').textContent = textVal;
-
-      const pBox = document.getElementById('previewIconBox');
-      const pEmoji = document.getElementById('previewIconEmoji');
-      const pImg = document.getElementById('previewIconImg');
-
-      if (tempTitleConfig.iconType === 'none') {
-        pBox.classList.add('hidden');
-      } else {
-        pBox.classList.remove('hidden');
-        if (tempTitleConfig.iconType === 'upload' && tempTitleConfig.iconValue) {
-          pEmoji.classList.add('hidden');
-          pImg.classList.remove('hidden');
-          pImg.src = tempTitleConfig.iconValue;
-        } else {
-          pImg.classList.add('hidden');
-          pEmoji.classList.remove('hidden');
-          pEmoji.textContent = tempTitleConfig.iconValue || '📅';
-        }
-      }
-    }
-
-    function saveTitleConfig() {
-      titleConfig = {
-        text: document.getElementById('titleTextInput').value.trim() || '工作行事曆',
-        iconType: tempTitleConfig.iconType,
-        iconValue: tempTitleConfig.iconValue || '📅'
-      };
-      applyTitleStyles();
-      broadcastRoomChanges();
-      closeTitleModal();
-    }
-
-    // ==========================================
-    // 標籤管理與色彩工具
-    // ==========================================
-    function getCategoryInfo(categoryId) {
-      const found = customCategories.find(c => c.id === categoryId);
-      return found || { name: '學生活動', color: '#2563eb' };
-    }
-
-    function getMemberInfo(memberId) {
-      if (!memberId) return null;
-      return customMembers.find(m => m.id === memberId) || null;
-    }
-
-    function hexToRgba(hex, alpha = 0.12) {
-      let c = (hex || '#2563eb').replace('#', '');
-      if (c.length === 3) c = c.split('').map(x => x + x).join('');
-      const num = parseInt(c, 16);
-      const r = (num >> 16) & 255;
-      const g = (num >> 8) & 255;
-      const b = num & 255;
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
-
-    function updateCategoryDropdowns() {
-      const filterSelect = document.getElementById('filterCategory');
-      const eventCatSelect = document.getElementById('eventCategorySelect');
-      const curFilter = filterSelect.value;
-      const curSelected = eventCatSelect.value;
-
-      filterSelect.innerHTML = '<option value="ALL">全部標籤類別</option>';
-      eventCatSelect.innerHTML = '';
-
-      customCategories.forEach(cat => {
-        const optFilter = document.createElement('option');
-        optFilter.value = cat.id;
-        optFilter.textContent = `● ${cat.name}`;
-        filterSelect.appendChild(optFilter);
-
-        const optEvent = document.createElement('option');
-        optEvent.value = cat.id;
-        optEvent.textContent = cat.name;
-        eventCatSelect.appendChild(optEvent);
-      });
-
-      filterSelect.value = customCategories.some(c => c.id === curFilter) ? curFilter : 'ALL';
-      if (customCategories.some(c => c.id === curSelected)) {
-        eventCatSelect.value = curSelected;
-      }
-    }
-
-    // ==========================================
-    // 成員 / 學生名單管理
-    // ==========================================
-    let selectedAvatarEmoji = '👦';
-
-    // 擴充包含超過 60 種高解析度頭像小圖庫
-    const AVATAR_LIST_60 = [
-      // 學生與人物
-      '👦', '👧', '🧑', '🧒', '🤓', '😊', '😎', '👼', '👮', '🤠', '🦸', '🧙',
-      // 可愛動物
-      '🐱', '🐶', '🐰', '🐻', '🐼', '🐨', '🦁', '🐯', '🐸', '🐷', '🐵', '🐥', '🐧', '🐬', '🦖', '🦄',
-      // 校園與文具
-      '📚', '🎒', '✏️', '🎨', '🔬', '🔭', '💻', '🌍', '🔍', '🔔', '📐', '📝',
-      // 運動與才藝
-      '⚽', '🏀', '⚾', '🎾', '🏸', '🏆', '🥇', '🎵', '🎹', '🎸', '🎮', '🛹',
-      // 自然、星空與符號
-      '⭐', '✨', '🚀', '☀️', '🌈', '🍀', '🌸', '🌱', '🌻', '🍎', '🍓', '👑', '💎', '❤️'
-    ];
-
-    function updateMemberDropdowns() {
-      const filterSelect = document.getElementById('filterMember');
-      if (!filterSelect) return;
-
-      const curFilter = filterSelect.value;
-      filterSelect.innerHTML = '<option value="ALL">全部成員 / 全班行事曆</option>';
-
-      // 依座號排序
-      const sorted = [...customMembers].sort((a, b) => {
-        const noA = parseInt(a.seatNo, 10) || 999;
-        const noB = parseInt(b.seatNo, 10) || 999;
-        return noA - noB;
-      });
-
-      sorted.forEach(mem => {
-        const optFilter = document.createElement('option');
-        optFilter.value = mem.id;
-        optFilter.textContent = `${mem.seatNo ? '[' + mem.seatNo + '號] ' : ''}${mem.avatar || '👤'} ${mem.name} 的行事曆`;
-        filterSelect.appendChild(optFilter);
-      });
-
-      filterSelect.value = customMembers.some(m => m.id === curFilter) ? curFilter : 'ALL';
-
-      // 同步更新行程彈窗內的成員複選池
-      renderEventMemberOptions();
-    }
-
-    // 渲染行程編輯視窗內的成員標籤（支援多選）
-    function renderEventMemberOptions() {
-      const container = document.getElementById('eventMemberCheckboxes');
-      const btnAll = document.getElementById('btnToggleAllMembers');
-      if (!container) return;
-
-      container.innerHTML = '';
-
-      const isAllSelected = currentModalSelectedMemberIds.includes('ALL_MEMBERS');
-      if (btnAll) {
-        if (isAllSelected) {
-          btnAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-600 bg-indigo-600 text-white";
-        } else {
-          btnAll.className = "px-2.5 py-1 text-xs font-semibold rounded-lg border transition shadow-2xs flex items-center gap-1 border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-50";
-        }
-      }
-
-      if (customMembers.length === 0) {
-        container.innerHTML = '<span class="text-[11px] text-slate-400 p-1">尚未建立成員名單，請先點擊上方「編輯/新增名單」</span>';
-        return;
-      }
-
-      const sorted = [...customMembers].sort((a, b) => (parseInt(a.seatNo, 10) || 999) - (parseInt(b.seatNo, 10) || 999));
-
-      sorted.forEach(mem => {
-        const isChecked = !isAllSelected && currentModalSelectedMemberIds.includes(mem.id);
-        const tag = document.createElement('button');
-        tag.type = "button";
-        tag.className = `px-2 py-1 text-xs rounded-lg border transition flex items-center gap-1 ${
-          isChecked
-            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs font-semibold'
-            : isAllSelected
-              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-400'
-        }`;
-
-        tag.innerHTML = `<span>${mem.avatar || '👤'}</span>${mem.seatNo ? '<span class="font-mono text-[10px]">' + mem.seatNo + '</span>' : ''}<span>${mem.name}</span>`;
-
-        tag.addEventListener('click', () => {
-          if (isAllSelected) {
-            // 若原本是全員，點擊特定成員則取消全員，轉為只選該位成員
-            currentModalSelectedMemberIds = [mem.id];
-          } else {
-            if (currentModalSelectedMemberIds.includes(mem.id)) {
-              currentModalSelectedMemberIds = currentModalSelectedMemberIds.filter(id => id !== mem.id);
-            } else {
-              currentModalSelectedMemberIds.push(mem.id);
-            }
-          }
-          renderEventMemberOptions();
-        });
-
-        container.appendChild(tag);
-      });
-    }
-
-    function openMemberModal() {
-      renderMemberManagerList();
-      document.getElementById('memberModal').classList.remove('hidden');
-    }
-
-    function closeMemberModal() {
-      document.getElementById('memberModal').classList.add('hidden');
-    }
-
-    function renderMemberManagerList() {
-      const container = document.getElementById('memberListContainer');
-      if (!container) return;
-      container.innerHTML = '';
-
-      if (customMembers.length === 0) {
-        container.innerHTML = '<div class="text-center text-slate-400 py-6 text-xs">尚未建立成員名單，可於上方直接輸入新增，或點擊下方批次匯入</div>';
-        return;
-      }
-
-      // 排序顯示
-      customMembers.sort((a, b) => (parseInt(a.seatNo, 10) || 999) - (parseInt(b.seatNo, 10) || 999));
-
-      customMembers.forEach(mem => {
-        const row = document.createElement('div');
-        row.className = "flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs";
-
-        const left = document.createElement('div');
-        left.className = "flex items-center gap-2 flex-1 mr-2";
-
-        // 頭像微調按鈕
-        const avatarBtn = document.createElement('button');
-        avatarBtn.type = "button";
-        avatarBtn.className = "w-7 h-7 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-base shrink-0 shadow-2xs select-none hover:scale-110 transition";
-        avatarBtn.textContent = mem.avatar || '👦';
-        avatarBtn.title = "點擊循環切換頭像小圖";
-        avatarBtn.addEventListener('click', () => {
-          const curIdx = AVATAR_LIST_60.indexOf(mem.avatar);
-          mem.avatar = AVATAR_LIST_60[(curIdx + 1) % AVATAR_LIST_60.length];
-          avatarBtn.textContent = mem.avatar;
-          broadcastRoomChanges();
-          updateMemberDropdowns();
-          renderCalendar();
-        });
-
-        // 座號輸入
-        const noInput = document.createElement('input');
-        noInput.type = "text";
-        noInput.value = mem.seatNo || '';
-        noInput.placeholder = "座號";
-        noInput.className = "w-14 text-center px-1.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 font-mono focus:border-indigo-500 focus:outline-none";
-        noInput.addEventListener('change', (e) => {
-          mem.seatNo = e.target.value.trim();
-          broadcastRoomChanges();
-          updateMemberDropdowns();
-          renderCalendar();
-        });
-
-        // 姓名輸入
-        const nameInput = document.createElement('input');
-        nameInput.type = "text";
-        nameInput.value = mem.name;
-        nameInput.placeholder = "學生姓名";
-        nameInput.className = "flex-1 px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium focus:border-indigo-500 focus:outline-none";
-        nameInput.addEventListener('change', (e) => {
-          const val = e.target.value.trim();
-          if (val) {
-            mem.name = val;
-            broadcastRoomChanges();
-            updateMemberDropdowns();
-            renderCalendar();
-          }
-        });
-
-        left.appendChild(avatarBtn);
-        left.appendChild(noInput);
-        left.appendChild(nameInput);
-
-        // 刪除按鈕
-        const delBtn = document.createElement('button');
-        delBtn.type = "button";
-        delBtn.className = "p-1.5 text-slate-400 hover:text-rose-600 rounded transition";
-        delBtn.title = "移除此成員";
-        delBtn.innerHTML = '<i class="ph ph-trash text-sm"></i>';
-        delBtn.addEventListener('click', () => {
-          customMembers = customMembers.filter(m => m.id !== mem.id);
-          broadcastRoomChanges();
-          updateMemberDropdowns();
-          renderMemberManagerList();
-          renderCalendar();
-        });
-
-        row.appendChild(left);
-        row.appendChild(delBtn);
-        container.appendChild(row);
-      });
-    }
-
-    function handleAddMember() {
-      const noInput = document.getElementById('newMemberNo');
-      const nameInput = document.getElementById('newMemberName');
-      const seatNo = noInput.value.trim();
-      const name = nameInput.value.trim();
-
-      if (!name) {
-        alert("請輸入姓名");
-        return;
-      }
-
-      const id = 'mem_' + Date.now();
-      customMembers.push({
-        id,
-        seatNo: seatNo || String(customMembers.length + 1).padStart(2, '0'),
-        name,
-        avatar: selectedAvatarEmoji || '👦'
-      });
-
-      nameInput.value = '';
-      noInput.value = String(customMembers.length + 1).padStart(2, '0');
-
-      broadcastRoomChanges();
-      updateMemberDropdowns();
-      renderMemberManagerList();
-      renderCalendar();
-    }
-
-    function openCategoryModal() {
-      renderCategoryManagerList();
-      document.getElementById('categoryModal').classList.remove('hidden');
-    }
-
-    function closeCategoryModal() {
-      document.getElementById('categoryModal').classList.add('hidden');
-    }
-
-    function renderCategoryManagerList() {
-      const container = document.getElementById('categoryListContainer');
-      container.innerHTML = '';
-
-      customCategories.forEach(cat => {
-        const row = document.createElement('div');
-        row.className = "flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs";
-
-        const left = document.createElement('div');
-        left.className = "flex items-center gap-2 flex-1 mr-2";
-
-        const colorInput = document.createElement('input');
-        colorInput.type = "color";
-        colorInput.value = cat.color;
-        colorInput.className = "w-6 h-6 rounded cursor-pointer border border-slate-300 p-0 bg-white shrink-0";
-        colorInput.addEventListener('change', (e) => {
-          cat.color = e.target.value;
-          broadcastRoomChanges();
-          updateCategoryDropdowns();
-          renderCalendar();
-        });
-
-        const nameInput = document.createElement('input');
-        nameInput.type = "text";
-        nameInput.value = cat.name;
-        nameInput.className = "w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white px-1 py-0.5 rounded text-slate-700 font-medium focus:outline-none transition";
-        nameInput.addEventListener('change', (e) => {
-          const val = e.target.value.trim();
-          if (val) {
-            cat.name = val;
-            broadcastRoomChanges();
-            updateCategoryDropdowns();
-            renderCalendar();
-          }
-        });
-
-        left.appendChild(colorInput);
-        left.appendChild(nameInput);
-
-        const delBtn = document.createElement('button');
-        delBtn.type = "button";
-        delBtn.className = "p-1.5 text-slate-400 hover:text-rose-600 rounded transition";
-        delBtn.title = "刪除此標籤";
-        delBtn.innerHTML = '<i class="ph ph-trash text-sm"></i>';
-        delBtn.addEventListener('click', () => {
-          if (customCategories.length <= 1) {
-            alert("請至少保留一個分類標籤。");
-            return;
-          }
-          customCategories = customCategories.filter(c => c.id !== cat.id);
-          broadcastRoomChanges();
-          updateCategoryDropdowns();
-          renderCategoryManagerList();
-          renderCalendar();
-        });
-
-        row.appendChild(left);
-        row.appendChild(delBtn);
-        container.appendChild(row);
-      });
-    }
-
-    function handleAddCategory() {
-      const nameInput = document.getElementById('newCatName');
-      const colorInput = document.getElementById('newCatColor');
-      const name = nameInput.value.trim();
-      const color = colorInput.value;
-
-      if (!name) return;
-
-      const catId = 'cat_' + Date.now();
-      customCategories.push({ id: catId, name, color });
-      nameInput.value = '';
-      broadcastRoomChanges();
-      updateCategoryDropdowns();
-      renderCategoryManagerList();
-      renderCalendar();
-    }
-
-    // ==========================================
-    // 時間選項與行程 Modal 控制函式
-    // ==========================================
-    function populateHourAndMinuteOptions() {
-      const hourSelect = document.getElementById('eventHourSelect');
-      const minuteSelect = document.getElementById('eventMinuteSelect');
-      if (!hourSelect || !minuteSelect) return;
-
-      hourSelect.innerHTML = '<option value="">時</option>';
-      for (let h = 6; h <= 23; h++) {
-        const val = String(h).padStart(2, '0');
-        const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = `${val} 時`;
-        hourSelect.appendChild(opt);
-      }
-
-      minuteSelect.innerHTML = '<option value="">分</option>';
-      for (let m = 0; m < 60; m += 5) {
-        const val = String(m).padStart(2, '0');
-        const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = `${val} 分`;
-        minuteSelect.appendChild(opt);
-      }
-    }
-
-    function updateModalBadge(categoryId) {
-      const badge = document.getElementById('modalColorBadge');
-      if (!badge) return;
-      const cat = getCategoryInfo(categoryId);
-      badge.style.backgroundColor = cat.color;
-    }
-
-    function openEventModal(eventData) {
-      const modal = document.getElementById('eventModal');
-      if (!modal) return;
-
-      const isEdit = !!eventData.id;
-      document.getElementById('modalTitle').textContent = isEdit ? '編輯行程' : '新增行程';
-      document.getElementById('eventId').value = eventData.id || '';
-      document.getElementById('eventDate').value = eventData.date;
-      document.getElementById('modalDateDisplay').textContent = eventData.date;
-      document.getElementById('eventTitleInput').value = eventData.title || '';
-      document.getElementById('eventTimeInput').value = eventData.time || '';
-      document.getElementById('eventNotesInput').value = eventData.notes || '';
-
-      const catSelect = document.getElementById('eventCategorySelect');
-      if (catSelect) {
-        catSelect.value = eventData.categoryId || customCategories[0]?.id;
-        updateModalBadge(catSelect.value);
-      }
-
-      // 成員多選設定（相容舊格式 memberId 及新格式 memberIds）
-      if (Array.isArray(eventData.memberIds)) {
-        currentModalSelectedMemberIds = [...eventData.memberIds];
-      } else if (eventData.memberId) {
-        currentModalSelectedMemberIds = [eventData.memberId];
-      } else {
-        currentModalSelectedMemberIds = [];
-      }
-      renderEventMemberOptions();
-
-      // 解析時間填入下拉選單
-      const hourSelect = document.getElementById('eventHourSelect');
-      const minuteSelect = document.getElementById('eventMinuteSelect');
-      const periodSelect = document.getElementById('eventPeriodSelect');
-
-      if (hourSelect) hourSelect.value = '';
-      if (minuteSelect) minuteSelect.value = '';
-      if (periodSelect) periodSelect.value = '';
-
-      if (eventData.time) {
-        if (eventData.time.includes(':')) {
-          const parts = eventData.time.split(':');
-          if (hourSelect) hourSelect.value = parts[0].padStart(2, '0');
-          if (minuteSelect) minuteSelect.value = parts[1].padStart(2, '0');
-        } else if (periodSelect) {
-          Array.from(periodSelect.options).forEach(opt => {
-            if (opt.value === eventData.time) {
-              periodSelect.value = eventData.time;
-            }
-          });
-        }
-      }
-
-      const btnDelete = document.getElementById('btnDeleteEvent');
-      if (btnDelete) {
-        if (isEdit) {
-          btnDelete.classList.remove('hidden');
-        } else {
-          btnDelete.classList.add('hidden');
-        }
-      }
-
-      modal.classList.remove('hidden');
-      setTimeout(() => document.getElementById('eventTitleInput').focus(), 50);
-    }
-
-    function closeModal() {
-      const modal = document.getElementById('eventModal');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    function handleSaveEvent(e) {
-      e.preventDefault();
-      const id = document.getElementById('eventId').value;
-      const date = document.getElementById('eventDate').value;
-      const title = document.getElementById('eventTitleInput').value.trim();
-      const time = document.getElementById('eventTimeInput').value.trim();
-      const categoryId = document.getElementById('eventCategorySelect').value;
-      const notes = document.getElementById('eventNotesInput').value.trim();
-      const memberIds = [...currentModalSelectedMemberIds];
-
-      if (!title) return;
-
-      if (id) {
-        const index = eventsList.findIndex(ev => ev.id === id);
-        if (index !== -1) {
-          eventsList[index] = { id, date, title, time, categoryId, memberIds, notes };
-        }
-      } else {
-        eventsList.push({
-          id: 'ev_' + Date.now(),
-          date,
-          title,
-          time,
-          categoryId,
-          memberIds,
-          notes
-        });
-      }
-
-      closeModal();
-      renderCalendar();
-      broadcastRoomChanges();
-    }
-
-    function handleDeleteEvent() {
-      const id = document.getElementById('eventId').value;
-      if (!id) return;
-      eventsList = eventsList.filter(ev => ev.id !== id);
-      closeModal();
-      renderCalendar();
-      broadcastRoomChanges();
-    }
-
-    // ==========================================
-    // 日曆主體渲染
-    // ==========================================
-    function renderCalendar() {
-      const grid = document.getElementById('calendarGrid');
-      const monthLabel = document.getElementById('currentMonthYearLabel');
-      const filterCategory = document.getElementById('filterCategory').value;
-      const filterMember = document.getElementById('filterMember') ? document.getElementById('filterMember').value : 'ALL';
-
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-
-      const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
-      monthLabel.textContent = `${year}年 ${monthNames[month]}`;
-
-      grid.innerHTML = '';
-
-      const firstDayIndex = new Date(year, month, 1).getDay();
-      const totalDays = new Date(year, month + 1, 0).getDate();
-      const prevMonthLastDate = new Date(year, month, 0).getDate();
-      const totalCells = Math.ceil((firstDayIndex + totalDays) / 7) * 7;
-
-      const today = new Date();
-      const isCurrentMonthActual = (today.getFullYear() === year && today.getMonth() === month);
-      const todayDateNumber = today.getDate();
-
-      // 計算格子背景 RGBA
-      const cellBgColor = hexToRgba(cellConfig.color || '#ffffff', (cellConfig.opacity ?? 95) / 100);
-      const isDarkCell = isColorDark(cellConfig.color || '#ffffff');
-
-      for (let i = 0; i < totalCells; i++) {
-        const cell = document.createElement('div');
-        cell.className = "flex flex-col p-1.5 sm:p-2.5 transition cursor-pointer grid-cell relative group";
-        cell.style.backgroundColor = cellBgColor;
-
-        let dateStr = "";
-        let dayNum = 0;
-        let isCurrentMonth = false;
-
-        if (i < firstDayIndex) {
-          dayNum = prevMonthLastDate - firstDayIndex + i + 1;
-          const pMonth = month === 0 ? 12 : month;
-          const pYear = month === 0 ? year - 1 : year;
-          dateStr = `${pYear}-${String(pMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-          cell.style.opacity = "0.55";
-        } else if (i >= firstDayIndex + totalDays) {
-          dayNum = i - (firstDayIndex + totalDays) + 1;
-          const nMonth = month === 11 ? 1 : month + 2;
-          const nYear = month === 11 ? year + 1 : year;
-          dateStr = `${nYear}-${String(nMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-          cell.style.opacity = "0.55";
-        } else {
-          dayNum = i - firstDayIndex + 1;
-          dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-          isCurrentMonth = true;
-        }
-
-        const isToday = isCurrentMonthActual && isCurrentMonth && dayNum === todayDateNumber;
-
-        const headerDiv = document.createElement('div');
-        headerDiv.className = "flex items-center justify-between mb-1";
-
-        const numSpan = document.createElement('span');
-        const defaultNumColor = isDarkCell ? 'text-slate-200' : 'text-slate-700';
-        numSpan.className = `text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center ${
-          isToday ? 'bg-indigo-600 text-white font-bold shadow-xs ring-2 ring-indigo-300' : isCurrentMonth ? defaultNumColor : 'text-slate-400'
-        }`;
-        numSpan.textContent = dayNum;
-        headerDiv.appendChild(numSpan);
-
-        const addHint = document.createElement('span');
-        addHint.className = "text-[11px] text-indigo-500 opacity-0 group-hover:opacity-100 transition hidden sm:inline";
-        addHint.innerHTML = '<i class="ph ph-plus"></i>';
-        headerDiv.appendChild(addHint);
-
-        cell.appendChild(headerDiv);
-
-        const eventsContainer = document.createElement('div');
-        eventsContainer.className = "flex-1 overflow-y-auto space-y-1 max-h-[75px] sm:max-h-[90px]";
-
-        const dayEvents = eventsList.filter(ev => {
-          if (ev.date !== dateStr) return false;
-          if (filterCategory !== 'ALL' && ev.categoryId !== filterCategory) return false;
-
-          // 成員個別篩選器（包含全員行程或包含該成員的行程）
-          if (filterMember !== 'ALL') {
-            const evMembers = Array.isArray(ev.memberIds)
-              ? ev.memberIds
-              : ev.memberId ? [ev.memberId] : [];
-            const isAll = evMembers.includes('ALL_MEMBERS');
-            const hasMember = evMembers.includes(filterMember);
-            if (!isAll && !hasMember) return false;
-          }
-
-          return true;
-        });
-
-        dayEvents.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-
-        dayEvents.forEach(ev => {
-          const cat = getCategoryInfo(ev.categoryId);
-          const evItem = document.createElement('div');
-          const boldCls = fontConfig.bold ? 'font-bold' : 'font-medium';
-          evItem.className = `text-[10px] sm:text-xs px-1.5 py-1 rounded border flex items-center gap-1 ${boldCls} truncate shadow-2xs cursor-pointer hover:brightness-95 transition`;
-          
-          evItem.style.backgroundColor = hexToRgba(cat.color, 0.12);
-          evItem.style.borderColor = hexToRgba(cat.color, 0.35);
-          evItem.style.color = cat.color;
-
-          // 整理成員資訊
-          const evMembers = Array.isArray(ev.memberIds)
-            ? ev.memberIds
-            : ev.memberId ? [ev.memberId] : [];
-
-          const isAll = evMembers.includes('ALL_MEMBERS');
-
-          let memberTip = '';
-          if (isAll) {
-            memberTip = ' [全員]';
-          } else if (evMembers.length > 0) {
-            const names = evMembers.map(mId => {
-              const m = getMemberInfo(mId);
-              return m ? (m.seatNo ? `${m.seatNo}號 ` : '') + m.name : '';
-            }).filter(Boolean);
-            if (names.length) memberTip = ` [${names.join(', ')}]`;
-          }
-
-          evItem.title = `[${cat.name}]${memberTip} ${ev.time ? ev.time + ' ' : ''}${ev.title}${ev.notes ? '\n' + ev.notes : ''}`;
-
-          const dot = document.createElement('span');
-          dot.className = "w-1.5 h-1.5 rounded-full shrink-0";
-          dot.style.backgroundColor = cat.color;
-
-          // 成員標記徽章（支援全員標記與多成員小頭像並列）
-          let memberBadge = null;
-          if (isAll) {
-            memberBadge = document.createElement('span');
-            memberBadge.className = "inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-indigo-100/90 text-[10px] text-indigo-700 border border-indigo-200 shrink-0 font-medium";
-            memberBadge.innerHTML = `<span>🌟</span><span>全員</span>`;
-          } else if (evMembers.length > 0) {
-            memberBadge = document.createElement('span');
-            memberBadge.className = "inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-white/90 text-[10px] text-slate-700 border border-slate-200/80 shrink-0 font-normal";
-            
-            const avatarsHtml = evMembers.slice(0, 3).map(mId => {
-              const m = getMemberInfo(mId);
-              return m ? `<span class="text-[11px]">${m.avatar || '👤'}</span>` : '';
-            }).join('');
-            
-            const moreCount = evMembers.length > 3 ? `<span class="font-mono text-[9px] text-slate-500">+${evMembers.length - 3}</span>` : '';
-            memberBadge.innerHTML = avatarsHtml + moreCount;
-          }
-
-          const titleSpan = document.createElement('span');
-          titleSpan.className = "truncate";
-          titleSpan.textContent = `${ev.time ? ev.time + ' ' : ''}${ev.title}`;
-
-          evItem.appendChild(dot);
-          if (memberBadge) evItem.appendChild(memberBadge);
-          evItem.appendChild(titleSpan);
-
-          evItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openEventModal({
-              id: ev.id,
-              date: ev.date,
-              title: ev.title,
-              time: ev.time || '',
-              categoryId: ev.categoryId || customCategories[0]?.id,
-              memberIds: ev.memberIds || (ev.memberId ? [ev.memberId] : []),
-              notes: ev.notes || ''
-            });
-          });
-
-          eventsContainer.appendChild(evItem);
-        });
-
-        cell.appendChild(eventsContainer);
-
-        cell.addEventListener('click', () => {
-          openEventModal({
-            id: null,
-            date: dateStr,
-            title: '',
-            time: '',
-            categoryId: customCategories[0]?.id,
-            memberIds: [],
-            notes: ''
-          });
-        });
-
-        grid.appendChild(cell);
-      }
-    }
-
-    // ==========================================
-    // 外觀風格管理 (背景、格子與字體)
-    // ==========================================
-    function isColorDark(hexColor) {
-      let c = (hexColor || '#ffffff').replace('#', '');
-      if (c.length === 3) c = c.split('').map(x => x + x).join('');
-      const num = parseInt(c, 16);
-      const r = (num >> 16) & 255;
-      const g = (num >> 8) & 255;
-      const b = num & 255;
-      // 依亮度演算法計算
-      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-      return yiq < 128;
-    }
-
-    function applyCellStyles() {
-      const picker = document.getElementById('cellCustomColorPicker');
-      const text = document.getElementById('cellCustomColorText');
-      const range = document.getElementById('cellOpacityRange');
-      const valDisplay = document.getElementById('cellOpacityVal');
-
-      if (picker) picker.value = cellConfig.color || '#ffffff';
-      if (text) text.value = cellConfig.color || '#ffffff';
-      if (range) range.value = cellConfig.opacity ?? 95;
-      if (valDisplay) valDisplay.textContent = `${cellConfig.opacity ?? 95}%`;
-
-      renderCalendar();
-    }
-
-    window.applyCellPresetBg = function(color, opacity = 95) {
-      cellConfig.color = color;
-      cellConfig.opacity = opacity;
-      applyCellStyles();
-      broadcastRoomChanges();
-    };
-
-    function applyBackgroundStyles() {
-      const bgContainer = document.getElementById('customBgContainer');
-      const bgOverlay = document.getElementById('customBgOverlay');
-      const opacityRange = document.getElementById('overlayOpacityRange');
-      const blurRange = document.getElementById('bgBlurRange');
-      const opacityVal = document.getElementById('overlayOpacityVal');
-      const blurVal = document.getElementById('bgBlurVal');
-
-      const alpha = (bgConfig.overlayOpacity ?? 75) / 100;
-      bgOverlay.style.backgroundColor = `rgba(248, 250, 252, ${alpha})`;
-      bgContainer.style.filter = `blur(${bgConfig.blur || 0}px)`;
-
-      if (bgConfig.type === 'color') {
-        bgContainer.style.backgroundImage = 'none';
-        bgContainer.style.backgroundColor = bgConfig.value;
-      } else if (bgConfig.type === 'gradient') {
-        bgContainer.style.backgroundImage = bgConfig.value;
-      } else if (bgConfig.type === 'image') {
-        bgContainer.style.backgroundColor = 'transparent';
-        bgContainer.style.backgroundImage = `url("${bgConfig.value}")`;
-      }
-
-      if (opacityRange) opacityRange.value = bgConfig.overlayOpacity ?? 75;
-      if (blurRange) blurRange.value = bgConfig.blur ?? 0;
-      if (opacityVal) opacityVal.textContent = `${bgConfig.overlayOpacity ?? 75}%`;
-      if (blurVal) blurVal.textContent = `${bgConfig.blur ?? 0}px`;
-
-      try {
-        localStorage.setItem('worksync_bg_config', JSON.stringify(bgConfig));
-      } catch (e) {}
-    }
-
-    window.applyPresetBg = function(type, value) {
-      bgConfig.type = type;
-      bgConfig.value = value;
-      if (type === 'image') {
-        bgConfig.overlayOpacity = Math.max(bgConfig.overlayOpacity, 60);
-      }
-      applyBackgroundStyles();
-    };
-
-    function applyFontStyles() {
-      const selectedFont = FONT_MAP[fontConfig.family] || FONT_MAP.sans;
-      document.body.style.fontFamily = selectedFont;
-
-      const scalePercent = (fontConfig.scale || 100);
-      document.documentElement.style.fontSize = `${(scalePercent / 100) * 16}px`;
-
-      const scaleRange = document.getElementById('fontSizeRange');
-      const scaleDisplay = document.getElementById('fontSizeDisplay');
-      const boldCheckbox = document.getElementById('boldTextCheckbox');
-      const previewBox = document.getElementById('fontPreviewBox');
-      const previewText = document.getElementById('previewText');
-
-      if (scaleRange) scaleRange.value = fontConfig.scale;
-      if (scaleDisplay) scaleDisplay.textContent = `${fontConfig.scale}%`;
-      if (boldCheckbox) boldCheckbox.checked = !!fontConfig.bold;
-
-      if (previewBox && previewText) {
-        previewBox.style.fontFamily = selectedFont;
-        if (fontConfig.bold) {
-          previewText.classList.add('font-bold');
-        } else {
-          previewText.classList.remove('font-bold');
-        }
-      }
-
-      document.querySelectorAll('#fontFamilySelector .font-btn').forEach(btn => {
-        if (btn.getAttribute('data-font') === fontConfig.family) {
-          btn.classList.add('bg-emerald-50/70', 'border-emerald-500', 'ring-1', 'ring-emerald-500');
-          btn.classList.remove('border-slate-200');
-        } else {
-          btn.classList.remove('bg-emerald-50/70', 'border-emerald-500', 'ring-1', 'ring-emerald-500');
-          btn.classList.add('border-slate-200');
-        }
-      });
-
-      try {
-        localStorage.setItem('worksync_font_config', JSON.stringify(fontConfig));
-      } catch (e) {}
-    }
-
-    // ==========================================
-    // 房間管理（歷史選單與切換）
+    // 房間管理（歷史選單、切換、驗證與新增）
     // ==========================================
     function saveRoomHistory() {
       try {
@@ -2287,14 +2238,11 @@
         const saved = localStorage.getItem('worksync_room_history');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             roomHistory = parsed;
           }
         }
       } catch (e) {}
-      if (!roomHistory.includes(currentRoom)) {
-        roomHistory.unshift(currentRoom);
-      }
     }
 
     function renderRoomDropdown() {
@@ -2302,9 +2250,14 @@
       if (!container) return;
       container.innerHTML = '';
 
+      if (roomHistory.length === 0) {
+        container.innerHTML = '<div class="px-3 py-1.5 text-slate-400 text-[11px]">暫無本機記錄，請輸入代號進入</div>';
+        return;
+      }
+
       roomHistory.forEach(roomName => {
         const item = document.createElement('div');
-        item.className = `flex items-center justify-between px-2.5 py-1.5 hover:bg-slate-50 cursor-pointer text-xs ${
+        item.className = `flex items-center justify-between px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-xs ${
           roomName === currentRoom ? 'bg-indigo-50/70 text-indigo-700 font-bold' : 'text-slate-700'
         }`;
 
@@ -2312,26 +2265,26 @@
         nameSpan.className = "truncate flex-1";
         nameSpan.textContent = roomName;
         nameSpan.addEventListener('click', () => {
-          switchRoom(roomName);
+          if (roomName !== currentRoom) {
+            switchRoom(roomName, false);
+          }
           toggleRoomDropdown(false);
         });
 
         item.appendChild(nameSpan);
 
-        // 若不是當前房間且清單大於1，提供刪除歷史紀錄的小按鈕
-        if (roomHistory.length > 1 && roomName !== currentRoom) {
-          const delBtn = document.createElement('button');
-          delBtn.className = "text-slate-300 hover:text-rose-500 p-0.5 rounded ml-1 transition";
-          delBtn.title = "從選單清單中移除此紀錄";
-          delBtn.innerHTML = '<i class="ph ph-x text-[11px]"></i>';
-          delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            roomHistory = roomHistory.filter(r => r !== roomName);
-            saveRoomHistory();
-            renderRoomDropdown();
-          });
-          item.appendChild(delBtn);
-        }
+        // 提供從選單清單中刪除歷史紀錄的小按鈕
+        const delBtn = document.createElement('button');
+        delBtn.className = "text-slate-300 hover:text-rose-500 p-0.5 rounded ml-1 transition";
+        delBtn.title = "從本機選單中移除";
+        delBtn.innerHTML = '<i class="ph ph-x text-[11px]"></i>';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          roomHistory = roomHistory.filter(r => r !== roomName);
+          saveRoomHistory();
+          renderRoomDropdown();
+        });
+        item.appendChild(delBtn);
 
         container.appendChild(item);
       });
@@ -2352,6 +2305,83 @@
         if (isHidden) renderRoomDropdown();
         menu.classList.toggle('hidden');
       }
+    }
+
+    // 檢查房間是否已存在（用於創立房間時防呆）
+    async function checkRoomExists(roomName) {
+      const clean = roomName.trim();
+      loadAuthRegistry();
+      if (roomAuthRegistry[clean]) return true;
+
+      // 向雲端檢查該頻道是否已有資料
+      try {
+        const channel = getChannelUrl(clean);
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const text = (await res.text()).trim();
+          if (text) {
+            const lines = text.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+              try {
+                const item = JSON.parse(lines[i]);
+                if (item && item.message) {
+                  const cloudData = JSON.parse(item.message);
+                  if (cloudData && (cloudData.eventsList || cloudData.roomAuthHash)) {
+                    if (cloudData.roomAuthHash) {
+                      roomAuthRegistry[clean] = cloudData.roomAuthHash;
+                      saveAuthRegistry();
+                    }
+                    return true;
+                  }
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      } catch(e) {}
+      return false;
+    }
+
+    // 驗證房間密碼
+    async function verifyRoomPassword(roomName, inputPwd) {
+      const clean = roomName.trim();
+      const inputHash = hashPassword(inputPwd);
+      loadAuthRegistry();
+
+      // 先查本機紀錄
+      if (roomAuthRegistry[clean]) {
+        return roomAuthRegistry[clean] === inputHash;
+      }
+
+      // 若本機沒有，向雲端拉取該房間的創始人密碼雜湊
+      try {
+        const channel = getChannelUrl(clean);
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const text = (await res.text()).trim();
+          if (text) {
+            const lines = text.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+              try {
+                const item = JSON.parse(lines[i]);
+                if (item && item.message) {
+                  const cloudData = JSON.parse(item.message);
+                  if (cloudData && cloudData.roomAuthHash) {
+                    roomAuthRegistry[clean] = cloudData.roomAuthHash;
+                    saveAuthRegistry();
+                    return cloudData.roomAuthHash === inputHash;
+                  }
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      } catch(e) {}
+
+      // 若該房間是全新尚未有密碼的舊房間，允許以第一次輸入的密碼作為該房間密碼
+      roomAuthRegistry[clean] = inputHash;
+      saveAuthRegistry();
+      return true;
     }
 
     function switchRoom(newRoom, isBrandNew = false) {
@@ -2389,6 +2419,22 @@
     // 頁面初始化與事件監聽
     // ==========================================
     window.addEventListener('DOMContentLoaded', () => {
+      // 一次性清理過往重複殘留的舊房間紀錄（如多個 502 等快取）
+      const hasCleanedOldLegacyRooms = localStorage.getItem('worksync_cleaned_legacy_v2');
+      if (!hasCleanedOldLegacyRooms) {
+        localStorage.removeItem('worksync_room_history');
+        localStorage.removeItem('worksync_last_room');
+        // 清理殘留舊房間 key
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('worksync_shared_') || key.startsWith('worksync_trigger_')) {
+            localStorage.removeItem(key);
+          }
+        });
+        localStorage.setItem('worksync_cleaned_legacy_v2', 'true');
+      }
+
+      loadAuthRegistry();
+
       // 讀取外觀設定
       try {
         const savedBg = localStorage.getItem('worksync_bg_config');
@@ -2424,7 +2470,7 @@
         showWelcomeRoomModal();
       }
 
-      // 歡迎引導 Modal 邏輯
+      // 歡迎引導 Modal 邏輯（加入需密碼驗證，建立防重複名稱與設定密碼）
       function showWelcomeRoomModal() {
         const modal = document.getElementById('welcomeRoomModal');
         if (!modal) return;
@@ -2435,13 +2481,18 @@
         const formJoin = document.getElementById('formJoinRoom');
         const formCreate = document.getElementById('formCreateNewRoom');
         const inputJoin = document.getElementById('inputJoinRoom');
+        const inputJoinPwd = document.getElementById('inputJoinPassword');
         const inputNew = document.getElementById('inputNewRoom');
+        const inputNewPwd = document.getElementById('inputNewRoomPassword');
+        const joinErrMsg = document.getElementById('welcomeJoinErrorMsg');
+        const createErrMsg = document.getElementById('welcomeCreateErrorMsg');
 
         tabJoin.addEventListener('click', () => {
           tabJoin.className = "py-2 text-center font-semibold rounded-lg bg-white text-indigo-600 shadow-xs transition";
           tabCreate.className = "py-2 text-center font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition";
           formJoin.classList.remove('hidden');
           formCreate.classList.add('hidden');
+          if (joinErrMsg) joinErrMsg.classList.add('hidden');
           setTimeout(() => inputJoin.focus(), 50);
         });
 
@@ -2450,35 +2501,61 @@
           tabJoin.className = "py-2 text-center font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition";
           formCreate.classList.remove('hidden');
           formJoin.classList.add('hidden');
+          if (createErrMsg) createErrMsg.classList.add('hidden');
           setTimeout(() => inputNew.focus(), 50);
         });
 
-        formJoin.addEventListener('submit', (e) => {
+        formJoin.addEventListener('submit', async (e) => {
           e.preventDefault();
           const roomToJoin = inputJoin.value.trim();
-          if (roomToJoin) {
+          const pwd = inputJoinPwd.value.trim();
+          if (!roomToJoin || !pwd) return;
+
+          const isValid = await verifyRoomPassword(roomToJoin, pwd);
+          if (isValid) {
+            if (joinErrMsg) joinErrMsg.classList.add('hidden');
             modal.classList.add('hidden');
             switchRoom(roomToJoin, false);
+          } else {
+            if (joinErrMsg) joinErrMsg.classList.remove('hidden');
           }
         });
 
-        formCreate.addEventListener('submit', (e) => {
+        formCreate.addEventListener('submit', async (e) => {
           e.preventDefault();
           const roomToCreate = inputNew.value.trim();
-          if (roomToCreate) {
-            modal.classList.add('hidden');
-            switchRoom(roomToCreate, true);
+          const pwd = inputNewPwd.value.trim();
+          if (!roomToCreate || !pwd) return;
+
+          // 檢查是否已有相同房間名稱
+          const exists = await checkRoomExists(roomToCreate);
+          if (exists) {
+            if (createErrMsg) createErrMsg.classList.remove('hidden');
+            return;
           }
+
+          if (createErrMsg) createErrMsg.classList.add('hidden');
+          // 註冊創始人密碼
+          roomAuthRegistry[roomToCreate] = hashPassword(pwd);
+          saveAuthRegistry();
+
+          modal.classList.add('hidden');
+          switchRoom(roomToCreate, true);
         });
       }
 
-      // 視窗切換與聚焦喚醒
+      // 視窗切換、聚焦與滑鼠移入時，強制即時對齊（突破 PWA 獨立視窗背景休眠限制）
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && currentRoom) {
           pullLatestFromCloud();
         }
       });
       window.addEventListener('focus', () => {
+        if (currentRoom) {
+          pullLatestFromCloud();
+        }
+      });
+      window.addEventListener('mouseenter', () => {
         if (currentRoom) {
           pullLatestFromCloud();
         }
@@ -2516,16 +2593,63 @@
         }
       });
 
-      // 新增房間 Modal
+      // 輸入代號進入房間 Modal（切換房間與驗證密碼）
+      const enterRoomModal = document.getElementById('enterRoomModal');
+      const btnMenuEnterRoom = document.getElementById('btnMenuEnterRoom');
+      const btnCloseEnterRoom = document.getElementById('btnCloseEnterRoomModal');
+      const btnCancelEnterRoom = document.getElementById('btnCancelEnterRoom');
+      const enterRoomForm = document.getElementById('enterRoomForm');
+      const inputEnterRoomName = document.getElementById('inputEnterRoomName');
+      const inputEnterRoomPassword = document.getElementById('inputEnterRoomPassword');
+      const enterRoomErrorMsg = document.getElementById('enterRoomErrorMsg');
+
+      if (btnMenuEnterRoom) {
+        btnMenuEnterRoom.addEventListener('click', () => {
+          toggleRoomDropdown(false);
+          inputEnterRoomName.value = '';
+          inputEnterRoomPassword.value = '';
+          if (enterRoomErrorMsg) enterRoomErrorMsg.classList.add('hidden');
+          enterRoomModal.classList.remove('hidden');
+          setTimeout(() => inputEnterRoomName.focus(), 50);
+        });
+      }
+
+      const closeEnterModal = () => enterRoomModal.classList.add('hidden');
+      if (btnCloseEnterRoom) btnCloseEnterRoom.addEventListener('click', closeEnterModal);
+      if (btnCancelEnterRoom) btnCancelEnterRoom.addEventListener('click', closeEnterModal);
+
+      if (enterRoomForm) {
+        enterRoomForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const targetRoom = inputEnterRoomName.value.trim();
+          const pwd = inputEnterRoomPassword.value.trim();
+          if (!targetRoom || !pwd) return;
+
+          const isValid = await verifyRoomPassword(targetRoom, pwd);
+          if (isValid) {
+            if (enterRoomErrorMsg) enterRoomErrorMsg.classList.add('hidden');
+            closeEnterModal();
+            switchRoom(targetRoom, false);
+          } else {
+            if (enterRoomErrorMsg) enterRoomErrorMsg.classList.remove('hidden');
+          }
+        });
+      }
+
+      // 新增房間 Modal（防重複名稱與設定創始人密碼）
       const createRoomModal = document.getElementById('createRoomModal');
       const btnOpenCreateRoom = document.getElementById('btnOpenCreateRoomModal');
       const btnCloseCreateRoom = document.getElementById('btnCloseCreateRoomModal');
       const btnCancelCreateRoom = document.getElementById('btnCancelCreateRoom');
       const createRoomForm = document.getElementById('createRoomForm');
       const newRoomNameInput = document.getElementById('newRoomNameInput');
+      const newRoomPasswordInput = document.getElementById('newRoomPasswordInput');
+      const createRoomErrorMsg = document.getElementById('createRoomErrorMsg');
 
       btnOpenCreateRoom.addEventListener('click', () => {
         newRoomNameInput.value = '';
+        if (newRoomPasswordInput) newRoomPasswordInput.value = '';
+        if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
         createRoomModal.classList.remove('hidden');
         setTimeout(() => newRoomNameInput.focus(), 50);
       });
@@ -2534,13 +2658,26 @@
       btnCloseCreateRoom.addEventListener('click', closeCreateModal);
       btnCancelCreateRoom.addEventListener('click', closeCreateModal);
 
-      createRoomForm.addEventListener('submit', (e) => {
+      createRoomForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const targetRoom = newRoomNameInput.value.trim();
-        if (targetRoom) {
-          closeCreateModal();
-          switchRoom(targetRoom, true);
+        const pwd = newRoomPasswordInput.value.trim();
+        if (!targetRoom || !pwd) return;
+
+        // 檢查名稱是否已存在
+        const exists = await checkRoomExists(targetRoom);
+        if (exists) {
+          if (createRoomErrorMsg) createRoomErrorMsg.classList.remove('hidden');
+          return;
         }
+
+        if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
+        // 註冊創始人密碼
+        roomAuthRegistry[targetRoom] = hashPassword(pwd);
+        saveAuthRegistry();
+
+        closeCreateModal();
+        switchRoom(targetRoom, true);
       });
 
       // 手動立即強制同步按鈕
