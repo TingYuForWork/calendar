@@ -1874,15 +1874,17 @@
       try {
         if (localBroadcast) {
           try { localBroadcast.close(); } catch(e){}
+          localBroadcast = null;
         }
         if (typeof BroadcastChannel !== 'undefined' && currentRoom) {
-          localBroadcast = new BroadcastChannel(`local_channel_${getChannelUrl(currentRoom)}`);
+          const channelName = `local_channel_${getChannelUrl(currentRoom)}`;
+          localBroadcast = new BroadcastChannel(channelName);
           localBroadcast.onmessage = (event) => {
             if (!event.data) return;
             if (event.data.senderId === CLIENT_INSTANCE_ID) return;
             if (event.data.data) {
               const incoming = event.data.data;
-              if (incoming.updatedAt && incoming.updatedAt > lastLocalTimestamp) {
+              if (incoming.updatedAt && incoming.updatedAt >= lastLocalTimestamp) {
                 lastLocalTimestamp = incoming.updatedAt;
                 applyIncomingData(incoming);
                 updateSyncBadge('success', '雙向即時連線正常');
@@ -1947,15 +1949,21 @@
 
         eventSource.onmessage = (event) => {
           try {
+            if (!event.data) return;
             const parsed = JSON.parse(event.data);
             if (parsed && parsed.message) {
-              const cloudPayload = JSON.parse(parsed.message);
+              let cloudPayload = null;
+              try {
+                cloudPayload = JSON.parse(parsed.message);
+              } catch (err) {
+                cloudPayload = null;
+              }
               if (cloudPayload && cloudPayload.senderId !== CLIENT_INSTANCE_ID) {
                 if (cloudPayload.roomAuthHash && currentRoom) {
                   roomAuthRegistry[currentRoom] = cloudPayload.roomAuthHash;
                   saveAuthRegistry();
                 }
-                if (cloudPayload.updatedAt && cloudPayload.updatedAt > lastLocalTimestamp) {
+                if (cloudPayload.updatedAt && cloudPayload.updatedAt >= lastLocalTimestamp) {
                   lastLocalTimestamp = cloudPayload.updatedAt;
                   applyIncomingData(cloudPayload);
                   updateSyncBadge('success', '雙向即時連線正常');
@@ -1963,7 +1971,7 @@
               }
             }
           } catch (e) {
-            // 非 JSON 格式訊息略過
+            // 忽略非 JSON 訊息
           }
         };
 
@@ -2061,10 +2069,14 @@
         });
 
         if (res.ok) {
-          const lines = (await res.text()).trim().split('\n');
+          const text = await res.text();
+          if (!text) return;
+          const lines = text.trim().split('\n');
           for (let i = lines.length - 1; i >= 0; i--) {
             try {
-              const item = JSON.parse(lines[i]);
+              const line = lines[i].trim();
+              if (!line) continue;
+              const item = JSON.parse(line);
               if (item && item.message) {
                 const cloudData = JSON.parse(item.message);
                 if (cloudData && typeof cloudData === 'object') {
@@ -2072,7 +2084,7 @@
                     roomAuthRegistry[currentRoom] = cloudData.roomAuthHash;
                     saveAuthRegistry();
                   }
-                  if (cloudData.senderId !== CLIENT_INSTANCE_ID && cloudData.updatedAt > lastLocalTimestamp) {
+                  if (cloudData.senderId !== CLIENT_INSTANCE_ID && cloudData.updatedAt >= lastLocalTimestamp) {
                     lastLocalTimestamp = cloudData.updatedAt;
                     applyIncomingData(cloudData);
                     updateSyncBadge('success', '雙向即時連線正常');
@@ -2080,7 +2092,9 @@
                   }
                 }
               }
-            } catch (err) {}
+            } catch (err) {
+              // 單行解析錯誤不阻斷其他行
+            }
           }
         }
       } catch (err) {}
