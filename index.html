@@ -1051,7 +1051,7 @@
     let currentRoom = "";
     let roomHistory = [];
     let eventsList = [];
-    let customCategories = [...DEFAULT_CATEGORIES];
+    let customCategories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
     let customMembers = [
       { id: 'mem_1', seatNo: '01', name: '王小明', avatar: '👦' },
       { id: 'mem_2', seatNo: '02', name: '陳小華', avatar: '👧' },
@@ -1230,7 +1230,8 @@
         const mPart = (data.customMembers || []).map(m => `${m.id}-${m.seatNo}-${m.name}-${m.avatar}`).join('|');
         const ePart = (data.eventsList || []).map(e => `${e.id}-${e.date}-${e.title}-${e.time}-${(e.memberIds||[]).join(',')}`).join('|');
         const cPart = (data.customCategories || []).map(c => `${c.id}-${c.name}-${c.color}`).join('|');
-        return `${mPart}###${ePart}###${cPart}###${data.eventsList?.length || 0}###${data.customMembers?.length || 0}`;
+        const cellPart = `${data.cellConfig?.color || ''}-${data.cellConfig?.opacity || ''}`;
+        return `${mPart}###${ePart}###${cPart}###${cellPart}###${data.eventsList?.length || 0}###${data.customMembers?.length || 0}`;
       } catch(e) {
         return "";
       }
@@ -1338,7 +1339,7 @@
         timestamp: nowTs,
         senderId: CLIENT_INSTANCE_ID,
         room: currentRoom,
-        data: roomData
+        data: JSON.parse(JSON.stringify(roomData))
       };
 
       // 1. 本機雙重廣播：把 24 人的完整名單直接推給同台電腦的 App 版 (0.001 秒同步)
@@ -1354,23 +1355,21 @@
         await writeToSharedDB(currentRoom, roomData);
       } catch (e) {}
 
-      // 3. 雲端推播：
-      // 當 24 位學生名單超過 3KB 時，ntfy.sh 會因 4KB 限制拒收。
-      // 因此超大名單發送輕量極速 Signal Pulse，觸發所有裝置 0 秒同步！
-      const jsonStr = JSON.stringify(payload);
-      let sendBody = jsonStr;
-
-      if (jsonStr.length > 3600) {
-        sendBody = JSON.stringify({
-          timestamp: nowTs,
-          senderId: CLIENT_INSTANCE_ID,
-          room: currentRoom,
-          signal: 'PULL_LATEST',
-          summary: `${customMembers.length} members updated`
-        });
-      }
-
+      // 3. 雲端推播通道
       try {
+        const jsonStr = JSON.stringify(payload);
+        let sendBody = jsonStr;
+
+        if (jsonStr.length > 3600) {
+          sendBody = JSON.stringify({
+            timestamp: nowTs,
+            senderId: CLIENT_INSTANCE_ID,
+            room: currentRoom,
+            signal: 'PULL_LATEST',
+            summary: `${customMembers.length} members updated`
+          });
+        }
+
         await fetch(`https://ntfy.sh/${channel}`, {
           method: 'POST',
           body: sendBody,
@@ -1428,7 +1427,7 @@
       const channel = getCleanChannelName(currentRoom);
 
       try {
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m&_t=${Date.now()}`, { 
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=10m&_win_t=${Date.now()}`, { 
           cache: 'no-store',
           headers: {
             'Pragma': 'no-cache',
@@ -1538,7 +1537,16 @@
         if (saved && !isBrandNew) {
           const parsed = JSON.parse(saved);
           titleConfig = parsed.titleConfig || { text: `${currentRoom} 行事曆`, iconType: 'emoji', iconValue: '📅' };
-          customCategories = parsed.customCategories && parsed.customCategories.length ? parsed.customCategories : [...DEFAULT_CATEGORIES];
+          
+          // 確保標籤包含校園五大分類
+          if (parsed.customCategories && Array.isArray(parsed.customCategories) && parsed.customCategories.length > 0) {
+            // 檢查是否仍殘留商務預設標籤，若是則替換為校園五大分類
+            const isOldBusiness = parsed.customCategories.some(c => c.name === '常規工作' || c.name === '重要緊急');
+            customCategories = isOldBusiness ? JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)) : parsed.customCategories;
+          } else {
+            customCategories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+          }
+
           customMembers = parsed.customMembers && Array.isArray(parsed.customMembers) ? parsed.customMembers : [
             { id: 'mem_1', seatNo: '01', name: '王小明', avatar: '👦' },
             { id: 'mem_2', seatNo: '02', name: '陳小華', avatar: '👧' }
@@ -1557,7 +1565,7 @@
             iconType: 'emoji',
             iconValue: '📅'
           };
-          customCategories = [...DEFAULT_CATEGORIES];
+          customCategories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
           cellConfig = { color: '#ffffff', opacity: 95 };
           customMembers = [
             { id: 'mem_1', seatNo: '01', name: '王小明', avatar: '👦' },
@@ -1568,7 +1576,7 @@
               id: 'ev_welcome_' + Date.now(),
               date: todayStr,
               title: `🎉 歡迎使用「${currentRoom}」房間！`,
-              time: '09:00',
+              time: '第一節',
               categoryId: 'cat_class',
               memberIds: ['ALL_MEMBERS'],
               notes: '這是新房間的示範行程。點擊此處即可編輯或刪除，也可以點擊日期空白處新增更多事項。'
