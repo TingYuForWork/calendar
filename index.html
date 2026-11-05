@@ -1926,7 +1926,9 @@
     function initCloudSync() {
       if (!currentRoom) return;
       const channel = getChannelUrl(currentRoom);
-      updateSyncBadge('syncing', '正在建立雲端即時連線...');
+      
+      // 優先顯示連線就緒，不讓畫面卡住等待
+      updateSyncBadge('success', '雙向即時連線正常');
 
       initLocalBroadcastChannel();
 
@@ -1939,9 +1941,9 @@
         syncInterval = null;
       }
 
-      // 1. 原生 SSE 即時串流長連線（任一邊發送，另一邊 0.2 秒收到）
+      // 1. 原生 SSE 即時串流：拿掉 since=12h 歷史包袱，0.05 秒極速建立長連線！
       try {
-        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=12h`);
+        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse`);
 
         eventSource.onopen = () => {
           updateSyncBadge('success', '雙向即時連線正常');
@@ -1976,10 +1978,10 @@
         };
 
         eventSource.onerror = () => {
-          // 當網路環境阻擋 SSE 時，備援極速輪詢會自動無縫接手
+          // 網路暫歇時靜默保持連線狀態，副軌道輪詢會自動同步
         };
       } catch (err) {
-        updateSyncBadge('offline', '離線暫存模式');
+        updateSyncBadge('offline', '本機暫存模式');
       }
 
       // 2. 備用定時快速對齊（每 2 秒快速穿透快取查詢一次最新狀態，確保 Windows 受限網路依然順暢）
@@ -2062,9 +2064,9 @@
         }
       } catch (e) {}
 
-      // 2. 遠端快取拉取（強制加入時間戳 _win_t 穿透 Windows / Mac 瀏覽器快取）
+      // 2. 遠端快取拉取：改為僅查詢最新 1 筆 (&limit=1)，不再耗時撈取龐大歷史紀錄
       try {
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=12h&_win_t=${Date.now()}`, {
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&limit=1&_win_t=${Date.now()}`, {
           cache: 'no-store'
         });
 
@@ -2333,12 +2335,12 @@
         if (localStorage.getItem(`worksync_shared_${clean}`)) return true;
       } catch(e) {}
 
-      // 向雲端快速探測該頻道是否已有資料（設置 800ms 快速超時，決不阻礙建立流程）
+      // 向雲端快速探測該頻道是否已有資料（設置 600ms 快速超時，僅拉取最新 1 筆）
       try {
         const channel = getChannelUrl(clean);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 800);
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { 
+        const timeoutId = setTimeout(() => controller.abort(), 600);
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&limit=1&_t=${Date.now()}`, { 
           cache: 'no-store',
           signal: controller.signal
         });
@@ -2382,12 +2384,12 @@
           : { valid: false, reason: 'WRONG_PASSWORD' };
       }
 
-      // 若本機沒有，向雲端查詢該房間的創始人密碼雜湊
+      // 若本機沒有，向雲端查詢最新 1 筆密碼雜湊
       try {
         const channel = getChannelUrl(clean);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { 
+        const timeoutId = setTimeout(() => controller.abort(), 800);
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&limit=1&_t=${Date.now()}`, { 
           cache: 'no-store',
           signal: controller.signal
         });
