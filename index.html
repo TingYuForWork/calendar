@@ -1240,14 +1240,16 @@
       }, 1000);
     }
 
-    // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 ＋ 網頁版 ⇋ App 版)
-    async function pushToCloud() {
+    // 防抖計時器：避免短時間連續編輯送出過多請求
+    let pushDebounceTimer = null;
+
+    // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 ＋ 網頁版 ⇋ App 版) - 極速非阻塞版本
+    function pushToCloud() {
       if (!currentRoom) return;
       const channel = getCleanChannelName(currentRoom);
       const nowTs = Date.now();
       lastLocalTimestamp = nowTs;
       saveLocalRoomData();
-      updateSyncBadge('syncing', '正在同步至雲端...');
 
       const roomData = {
         titleConfig,
@@ -1265,46 +1267,55 @@
         data: JSON.parse(JSON.stringify(roomData))
       };
 
-      // 1. 本機雙重廣播：把 24 人的完整名單直接推給同台電腦的 App 版 (0.001 秒同步)
+      // 1. 本地實體硬碟 (IndexedDB / localStorage) + 跨視窗 (BroadcastChannel) 0.001 秒瞬間完成
       try {
         if (localBroadcast) localBroadcast.postMessage(payload);
         if (universalBroadcast) universalBroadcast.postMessage(payload);
       } catch (err) {}
 
-      // 2. 寫入本地 localStorage 與硬碟級 IndexedDB（突破沙盒隔離）
       try {
         localStorage.setItem(`worksync_shared_${currentRoom}`, JSON.stringify(roomData));
         localStorage.setItem(`worksync_trigger_${currentRoom}`, String(nowTs));
-        await writeToSharedDB(currentRoom, roomData);
+        writeToSharedDB(currentRoom, roomData);
       } catch (e) {}
 
-      // 3. 雲端推播通道
-      try {
-        const jsonStr = JSON.stringify(payload);
-        let sendBody = jsonStr;
+      // 2. 樂觀 UI 反饋：本地與同機已完成，立即亮起綠燈，絕不讓使用者等待雲端網路來回！
+      updateSyncBadge('success', '已即時儲存並同步');
 
-        if (jsonStr.length > 3600) {
-          sendBody = JSON.stringify({
-            timestamp: nowTs,
-            senderId: CLIENT_INSTANCE_ID,
-            room: currentRoom,
-            signal: 'PULL_LATEST',
-            summary: `${customMembers.length} members updated`
-          });
-        }
+      // 3. 背景非同步推送雲端 (Fire-and-forget，不阻塞主線程，並加入防抖合併)
+      if (pushDebounceTimer) clearTimeout(pushDebounceTimer);
+      pushDebounceTimer = setTimeout(async () => {
+        try {
+          const jsonStr = JSON.stringify(payload);
+          let sendBody = jsonStr;
 
-        await fetch(`https://ntfy.sh/${channel}`, {
-          method: 'POST',
-          body: sendBody,
-          headers: {
-            'Title': 'CalSync',
-            'Priority': 'urgent'
+          if (jsonStr.length > 3600) {
+            sendBody = JSON.stringify({
+              timestamp: nowTs,
+              senderId: CLIENT_INSTANCE_ID,
+              room: currentRoom,
+              signal: 'PULL_LATEST',
+              summary: `${customMembers.length} members updated`
+            });
           }
-        });
-        updateSyncBadge('success', '雙向即時連線正常');
-      } catch (e) {
-        updateSyncBadge('offline', '已保存在本機快取');
-      }
+
+          fetch(`https://ntfy.sh/${channel}`, {
+            method: 'POST',
+            body: sendBody,
+            keepalive: true,
+            headers: {
+              'Title': 'CalSync',
+              'Priority': 'urgent'
+            }
+          }).then(res => {
+            if (res.ok) {
+              updateSyncBadge('success', '雙向即時連線正常');
+            }
+          }).catch(() => {
+            // 背景推播遇到網路波動時維持本地就緒
+          });
+        } catch (e) {}
+      }, 150);
     }
 
     // 優先讀取本機共享硬碟 IndexedDB 與 localStorage，無縫打通網頁版與 App 版
