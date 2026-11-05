@@ -855,7 +855,7 @@
           <button type="button" id="btnCancelEnterRoom" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition">
             取消
           </button>
-          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-xs transition flex items-center gap-1">
+          <button type="submit" id="btnSubmitEnterRoom" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-xs transition flex items-center gap-1">
             <i class="ph ph-sign-in"></i> 驗證並進入
           </button>
         </div>
@@ -899,7 +899,7 @@
           <button type="button" id="btnCancelCreateRoom" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition">
             取消
           </button>
-          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-xs transition">
+          <button type="submit" id="btnSubmitCreateRoom" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-xs transition flex items-center justify-center gap-1">
             設定密碼並建立
           </button>
         </div>
@@ -944,7 +944,7 @@
                    class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
             <p id="welcomeJoinErrorMsg" class="text-[11px] text-rose-600 mt-1 font-medium hidden">房間代號不存在或密碼錯誤！</p>
           </div>
-          <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+          <button type="submit" id="btnSubmitWelcomeJoin" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
             <i class="ph ph-sign-in text-sm"></i> 驗證並進入房間
           </button>
         </form>
@@ -965,7 +965,7 @@
                    class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
             <p class="text-[11px] text-slate-400 mt-1">此密碼由創始人您設定，供其他裝置或成員驗證加入。</p>
           </div>
-          <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+          <button type="submit" id="btnSubmitWelcomeCreate" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
             <i class="ph ph-plus-circle text-sm"></i> 設定密碼並建立新房間
           </button>
         </form>
@@ -2313,11 +2313,14 @@
       loadAuthRegistry();
       if (roomAuthRegistry[clean]) return true;
 
-      // 向雲端檢查該頻道是否已有資料
+      // 向雲端檢查該頻道是否已有資料（設置 1.5 秒超時，防止網路卡住導致按鈕沒反應）
       try {
         const channel = getChannelUrl(clean);
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
+        const fetchPromise = fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+        
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        if (res && res.ok) {
           const text = (await res.text()).trim();
           if (text) {
             const lines = text.split('\n');
@@ -2342,7 +2345,7 @@
       return false;
     }
 
-    // 驗證房間密碼
+    // 驗證房間密碼（回傳物件: { valid: boolean, reason?: 'ROOM_NOT_FOUND' | 'WRONG_PASSWORD' }）
     async function verifyRoomPassword(roomName, inputPwd) {
       const clean = roomName.trim();
       const inputHash = hashPassword(inputPwd);
@@ -2350,14 +2353,19 @@
 
       // 先查本機紀錄
       if (roomAuthRegistry[clean]) {
-        return roomAuthRegistry[clean] === inputHash;
+        return roomAuthRegistry[clean] === inputHash 
+          ? { valid: true } 
+          : { valid: false, reason: 'WRONG_PASSWORD' };
       }
 
-      // 若本機沒有，向雲端拉取該房間的創始人密碼雜湊
+      // 若本機沒有，向雲端查詢該房間的創始人密碼雜湊
       try {
         const channel = getChannelUrl(clean);
-        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
+        const fetchPromise = fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
+        
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        if (res && res.ok) {
           const text = (await res.text()).trim();
           if (text) {
             const lines = text.split('\n');
@@ -2366,10 +2374,18 @@
                 const item = JSON.parse(lines[i]);
                 if (item && item.message) {
                   const cloudData = JSON.parse(item.message);
-                  if (cloudData && cloudData.roomAuthHash) {
-                    roomAuthRegistry[clean] = cloudData.roomAuthHash;
+                  if (cloudData) {
+                    if (cloudData.roomAuthHash) {
+                      roomAuthRegistry[clean] = cloudData.roomAuthHash;
+                      saveAuthRegistry();
+                      return cloudData.roomAuthHash === inputHash
+                        ? { valid: true }
+                        : { valid: false, reason: 'WRONG_PASSWORD' };
+                    }
+                    // 該房間存在但尚未設定密碼
+                    roomAuthRegistry[clean] = inputHash;
                     saveAuthRegistry();
-                    return cloudData.roomAuthHash === inputHash;
+                    return { valid: true };
                   }
                 }
               } catch(e) {}
@@ -2378,10 +2394,8 @@
         }
       } catch(e) {}
 
-      // 若該房間是全新尚未有密碼的舊房間，允許以第一次輸入的密碼作為該房間密碼
-      roomAuthRegistry[clean] = inputHash;
-      saveAuthRegistry();
-      return true;
+      // 雲端與本機均查無此房間
+      return { valid: false, reason: 'ROOM_NOT_FOUND' };
     }
 
     function switchRoom(newRoom, isBrandNew = false) {
@@ -2511,13 +2525,32 @@
           const pwd = inputJoinPwd.value.trim();
           if (!roomToJoin || !pwd) return;
 
-          const isValid = await verifyRoomPassword(roomToJoin, pwd);
-          if (isValid) {
+          const submitBtn = document.getElementById('btnSubmitWelcomeJoin');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin text-sm"></i> 正在驗證...';
+          }
+
+          const result = await verifyRoomPassword(roomToJoin, pwd);
+
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="ph ph-sign-in text-sm"></i> 驗證並進入房間';
+          }
+
+          if (result.valid) {
             if (joinErrMsg) joinErrMsg.classList.add('hidden');
             modal.classList.add('hidden');
             switchRoom(roomToJoin, false);
           } else {
-            if (joinErrMsg) joinErrMsg.classList.remove('hidden');
+            if (joinErrMsg) {
+              if (result.reason === 'ROOM_NOT_FOUND') {
+                joinErrMsg.textContent = '❌ 找不到此房間！請確認代號是否正確，或由創始人建立。';
+              } else {
+                joinErrMsg.textContent = '🔒 密碼不正確！請向創始人確認密碼後再試。';
+              }
+              joinErrMsg.classList.remove('hidden');
+            }
           }
         });
 
@@ -2527,20 +2560,47 @@
           const pwd = inputNewPwd.value.trim();
           if (!roomToCreate || !pwd) return;
 
-          // 檢查是否已有相同房間名稱
-          const exists = await checkRoomExists(roomToCreate);
-          if (exists) {
-            if (createErrMsg) createErrMsg.classList.remove('hidden');
-            return;
+          const submitBtn = document.getElementById('btnSubmitWelcomeCreate');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin text-sm"></i> 正在建立...';
           }
 
-          if (createErrMsg) createErrMsg.classList.add('hidden');
-          // 註冊創始人密碼
-          roomAuthRegistry[roomToCreate] = hashPassword(pwd);
-          saveAuthRegistry();
+          try {
+            // 檢查是否已有相同房間名稱
+            const exists = await checkRoomExists(roomToCreate);
+            if (exists) {
+              if (createErrMsg) {
+                createErrMsg.textContent = '⚠️ 已有此房間！請更換名稱，或改由「加入已知房間」輸入密碼進入。';
+                createErrMsg.classList.remove('hidden');
+              }
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="ph ph-plus-circle text-sm"></i> 設定密碼並建立新房間';
+              }
+              return;
+            }
 
-          modal.classList.add('hidden');
-          switchRoom(roomToCreate, true);
+            if (createErrMsg) createErrMsg.classList.add('hidden');
+            // 註冊創始人密碼
+            roomAuthRegistry[roomToCreate] = hashPassword(pwd);
+            saveAuthRegistry();
+
+            modal.classList.add('hidden');
+            switchRoom(roomToCreate, true);
+          } catch(err) {
+            console.error("Create room error:", err);
+            // 容錯直接建立
+            roomAuthRegistry[roomToCreate] = hashPassword(pwd);
+            saveAuthRegistry();
+            modal.classList.add('hidden');
+            switchRoom(roomToCreate, true);
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = '<i class="ph ph-plus-circle text-sm"></i> 設定密碼並建立新房間';
+            }
+          }
         });
       }
 
@@ -2625,13 +2685,32 @@
           const pwd = inputEnterRoomPassword.value.trim();
           if (!targetRoom || !pwd) return;
 
-          const isValid = await verifyRoomPassword(targetRoom, pwd);
-          if (isValid) {
+          const submitBtn = document.getElementById('btnSubmitEnterRoom');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> 驗證中...';
+          }
+
+          const result = await verifyRoomPassword(targetRoom, pwd);
+
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="ph ph-sign-in"></i> 驗證並進入';
+          }
+
+          if (result.valid) {
             if (enterRoomErrorMsg) enterRoomErrorMsg.classList.add('hidden');
             closeEnterModal();
             switchRoom(targetRoom, false);
           } else {
-            if (enterRoomErrorMsg) enterRoomErrorMsg.classList.remove('hidden');
+            if (enterRoomErrorMsg) {
+              if (result.reason === 'ROOM_NOT_FOUND') {
+                enterRoomErrorMsg.textContent = '❌ 找不到此房間！請確認代號是否輸入正確。';
+              } else {
+                enterRoomErrorMsg.textContent = '🔒 密碼不正確！請向創始人確認房間密碼。';
+              }
+              enterRoomErrorMsg.classList.remove('hidden');
+            }
           }
         });
       }
@@ -2664,20 +2743,47 @@
         const pwd = newRoomPasswordInput.value.trim();
         if (!targetRoom || !pwd) return;
 
-        // 檢查名稱是否已存在
-        const exists = await checkRoomExists(targetRoom);
-        if (exists) {
-          if (createRoomErrorMsg) createRoomErrorMsg.classList.remove('hidden');
-          return;
+        const submitBtn = document.getElementById('btnSubmitCreateRoom');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> 建立中...';
         }
 
-        if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
-        // 註冊創始人密碼
-        roomAuthRegistry[targetRoom] = hashPassword(pwd);
-        saveAuthRegistry();
+        try {
+          // 檢查名稱是否已存在（設有超時保護防卡住）
+          const exists = await checkRoomExists(targetRoom);
+          if (exists) {
+            if (createRoomErrorMsg) {
+              createRoomErrorMsg.textContent = '⚠️ 已有此房間！請更換名稱，或直接透過「進入房間」輸入密碼加入。';
+              createRoomErrorMsg.classList.remove('hidden');
+            }
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = '設定密碼並建立';
+            }
+            return;
+          }
 
-        closeCreateModal();
-        switchRoom(targetRoom, true);
+          if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
+          // 註冊創始人密碼
+          roomAuthRegistry[targetRoom] = hashPassword(pwd);
+          saveAuthRegistry();
+
+          closeCreateModal();
+          switchRoom(targetRoom, true);
+        } catch(err) {
+          console.error("Create room modal error:", err);
+          // 容錯直接建立
+          roomAuthRegistry[targetRoom] = hashPassword(pwd);
+          saveAuthRegistry();
+          closeCreateModal();
+          switchRoom(targetRoom, true);
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '設定密碼並建立';
+          }
+        }
       });
 
       // 手動立即強制同步按鈕
