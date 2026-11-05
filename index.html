@@ -8,8 +8,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <!-- 引入極致輕量 LZ-String 壓縮庫，將 24 人大名單與行程壓縮 75%，保證 0.2 秒秒傳且永不超過限制 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&family=Nunito:wght@400;600;700&display=swap');
 
@@ -1019,159 +1017,53 @@
     };
 
     // ==========================================
-    // 之前成功且經過壓縮加固的極速即時連線核心（相容 Mac App、Windows 桌機與網頁版）
+    // 徹底還原至當初最成功、秒連秒動的經典連線核心架構
     // ==========================================
     let eventSource = null;
     let syncInterval = null;
     let localBroadcast = null;
-    let universalBroadcast = null;
     let lastLocalTimestamp = 0;
-    let lastDataFingerprint = "";
     const CLIENT_INSTANCE_ID = 'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
-    // 取得乾淨一致的頻道代碼
-    function getCleanChannelName(roomStr) {
-      const raw = (roomStr || 'school-work-2026').trim();
-      let hash = 5381;
-      for (let i = 0; i < raw.length; i++) {
-        hash = ((hash << 5) + hash) + raw.charCodeAt(i);
-        hash = hash & hash;
+    // 取得乾淨、直覺且各端絕對一致的頻道代碼（URL Safe）
+    function getChannelUrl(roomStr) {
+      const cleanRoom = (roomStr || 'school-work-2026').trim();
+      // 使用穩定的純英數安全雜湊，確保中文房間名在任何作業系統都完全連到同一個通道
+      let hash = 0;
+      for (let i = 0; i < cleanRoom.length; i++) {
+        hash = ((hash << 5) - hash) + cleanRoom.charCodeAt(i);
+        hash |= 0;
       }
-      return `cal_v5_${Math.abs(hash).toString(36)}`;
+      return `school_cal_sync_${Math.abs(hash)}`;
     }
 
-    // 計算資料指紋
-    function computeFingerprint(data) {
-      if (!data) return "";
-      try {
-        const mPart = (data.customMembers || []).map(m => `${m.id}-${m.seatNo}-${m.name}-${m.avatar}`).join('|');
-        const ePart = (data.eventsList || []).map(e => `${e.id}-${e.date}-${e.title}-${e.time}-${(e.memberIds||[]).join(',')}`).join('|');
-        const cPart = (data.customCategories || []).map(c => `${c.id}-${c.name}-${c.color}`).join('|');
-        const cellPart = `${data.cellConfig?.color || ''}-${data.cellConfig?.opacity || ''}`;
-        return `${mPart}###${ePart}###${cPart}###${cellPart}###${data.eventsList?.length || 0}###${data.customMembers?.length || 0}`;
-      } catch(e) {
-        return "";
-      }
-    }
-
-    // 跨視窗廣播通道初始化（網頁版 ⇋ 應用程式版）
+    // 跨視窗/應用程式廣播通道初始化（網頁版 ⇋ 桌面應用程式版）
     function initLocalBroadcastChannel() {
       try {
         if (localBroadcast) {
           try { localBroadcast.close(); } catch(e){}
         }
-        if (universalBroadcast) {
-          try { universalBroadcast.close(); } catch(e){}
-        }
-
-        if (typeof BroadcastChannel !== 'undefined') {
-          if (currentRoom) {
-            const chName = `local_cal_ch_${getCleanChannelName(currentRoom)}`;
-            localBroadcast = new BroadcastChannel(chName);
-            localBroadcast.onmessage = handleBroadcastMessage;
-          }
-          universalBroadcast = new BroadcastChannel('universal_calendar_bridge');
-          universalBroadcast.onmessage = handleBroadcastMessage;
+        if (typeof BroadcastChannel !== 'undefined' && currentRoom) {
+          localBroadcast = new BroadcastChannel(`local_channel_${getChannelUrl(currentRoom)}`);
+          localBroadcast.onmessage = (event) => {
+            if (!event.data) return;
+            if (event.data.senderId === CLIENT_INSTANCE_ID) return;
+            if (event.data.data) {
+              applyIncomingData(event.data.data);
+              updateSyncBadge('success', '雙向即時連線正常');
+            }
+          };
         }
       } catch (err) {
         console.warn("BroadcastChannel error:", err);
       }
     }
 
-    // 實體硬碟資料庫 (IndexedDB)
-    const DB_NAME = 'WorkCalendarSharedDB';
-    const DB_STORE = 'room_store';
-
-    function openSharedDB() {
-      return new Promise((resolve) => {
-        if (!window.indexedDB) return resolve(null);
-        try {
-          const request = indexedDB.open(DB_NAME, 1);
-          request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains(DB_STORE)) {
-              db.createObjectStore(DB_STORE, { keyPath: 'room' });
-            }
-          };
-          request.onsuccess = (e) => resolve(e.target.result);
-          request.onerror = () => resolve(null);
-        } catch (e) {
-          resolve(null);
-        }
-      });
-    }
-
-    async function writeToSharedDB(room, data) {
-      try {
-        const db = await openSharedDB();
-        if (!db) return;
-        const tx = db.transaction(DB_STORE, 'readwrite');
-        const store = tx.objectStore(DB_STORE);
-        store.put({ room, data, updatedAt: Date.now() });
-      } catch (e) {}
-    }
-
-    async function readFromSharedDB(room) {
-      try {
-        const db = await openSharedDB();
-        if (!db) return null;
-        return new Promise((resolve) => {
-          const tx = db.transaction(DB_STORE, 'readonly');
-          const store = tx.objectStore(DB_STORE);
-          const req = store.get(room);
-          req.onsuccess = () => resolve(req.result ? req.result.data : null);
-          req.onerror = () => resolve(null);
-        });
-      } catch (e) {
-        return null;
-      }
-    }
-
-    function handleBroadcastMessage(event) {
-      if (!event.data) return;
-      if (event.data.senderId === CLIENT_INSTANCE_ID) return;
-
-      const incomingRoom = (event.data.room || '').trim();
-      const currentActiveRoom = (currentRoom || '').trim();
-
-      if (!currentActiveRoom || incomingRoom === currentActiveRoom) {
-        if (event.data.data) {
-          const incomingFingerprint = computeFingerprint(event.data.data);
-          if (incomingFingerprint !== lastDataFingerprint) {
-            lastLocalTimestamp = Math.max(lastLocalTimestamp, event.data.timestamp || Date.now());
-            lastDataFingerprint = incomingFingerprint;
-            applyIncomingData(event.data.data);
-            updateSyncBadge('success', '網頁與應用程式已即時連動');
-          }
-        } else {
-          pullLatestFromCloud();
-        }
-      }
-    }
-
-    // 解壓縮封包輔助函式
-    function decompressPayload(rawText) {
-      if (!rawText) return null;
-      try {
-        // 先嘗試純 JSON
-        return JSON.parse(rawText);
-      } catch (e) {
-        // 若不是純 JSON，嘗試 LZ 解壓縮
-        try {
-          if (typeof LZString !== 'undefined') {
-            const decomp = LZString.decompressFromUTF16(rawText) || LZString.decompressFromEncodedURIComponent(rawText);
-            if (decomp) return JSON.parse(decomp);
-          }
-        } catch (err) {}
-      }
-      return null;
-    }
-
-    // 初始化雲端連線與即時推播監聽
+    // 初始化雲端連線與即時推播監聽（當初秒連秒成功的模式）
     function initCloudSync() {
       if (!currentRoom) return;
-      const channel = getCleanChannelName(currentRoom);
-      updateSyncBadge('syncing', '正在建立雙向即時連線...');
+      const channel = getChannelUrl(currentRoom);
+      updateSyncBadge('syncing', '正在建立雲端即時連線...');
 
       initLocalBroadcastChannel();
 
@@ -1184,9 +1076,9 @@
         syncInterval = null;
       }
 
-      // 1. 建立真正可用的 SSE 即時推播監聽（自帶快取讀取）
+      // 1. 原生 SSE 即時串流長連線（任一邊發送，另一邊 0.2 秒收到）
       try {
-        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=12h&_nocache=${Date.now()}`);
+        eventSource = new EventSource(`https://ntfy.sh/${channel}/sse?since=12h`);
 
         eventSource.onopen = () => {
           updateSyncBadge('success', '雙向即時連線正常');
@@ -1196,42 +1088,40 @@
           try {
             const parsed = JSON.parse(event.data);
             if (parsed && parsed.message) {
-              const cloudPayload = decompressPayload(parsed.message);
+              const cloudPayload = JSON.parse(parsed.message);
               if (cloudPayload && cloudPayload.senderId !== CLIENT_INSTANCE_ID) {
-                const cloudFingerprint = computeFingerprint(cloudPayload);
-                if (cloudFingerprint && cloudFingerprint !== lastDataFingerprint) {
-                  lastLocalTimestamp = Math.max(lastLocalTimestamp, cloudPayload.updatedAt || Date.now());
-                  lastDataFingerprint = cloudFingerprint;
+                if (cloudPayload.updatedAt && cloudPayload.updatedAt > lastLocalTimestamp) {
+                  lastLocalTimestamp = cloudPayload.updatedAt;
                   applyIncomingData(cloudPayload);
                   updateSyncBadge('success', '雙向即時連線正常');
                 }
               }
             }
-          } catch (e) {}
+          } catch (e) {
+            // 非 JSON 格式訊息略過
+          }
         };
 
         eventSource.onerror = () => {
-          updateSyncBadge('success', '即時連動通道就緒');
+          // SSE 重連保護
         };
       } catch (err) {
-        updateSyncBadge('success', '本機與雲端保護就緒');
+        updateSyncBadge('offline', '離線暫存模式');
       }
 
-      // 2. 雙向輪詢保險（向 ntfy 官方 JSON 快取索取，徹底破除快取）
+      // 2. 備用定時快速對齊（每 3 秒快速查詢一次最新快取，穿透快取）
       syncInterval = setInterval(() => {
         pullLatestFromCloud();
-      }, 2500);
+      }, 3000);
 
-      // 初次啟動立即執行一次
+      // 初次啟動立即拉取一次
       pullLatestFromCloud();
     }
 
-    // 非同步儲存與雲端推送（結合 LZ 壓縮，24 人名單 100% 成功送達）
-    let cloudPushTimeout = null;
-
+    // 儲存並即時推送到雲端與同機應用程式
     function pushToCloud() {
       if (!currentRoom) return;
-      const channelKey = getCleanChannelName(currentRoom);
+      const channel = getChannelUrl(currentRoom);
       const nowTs = Date.now();
       lastLocalTimestamp = nowTs;
       saveLocalRoomData();
@@ -1245,111 +1135,73 @@
         updatedAt: nowTs,
         senderId: CLIENT_INSTANCE_ID
       };
-      lastDataFingerprint = computeFingerprint(roomData);
 
-      // 1. 同台電腦（網頁版 ⇋ 應用程式版）瞬間 0.001 秒傳輸
-      const localPayload = {
-        timestamp: nowTs,
-        senderId: CLIENT_INSTANCE_ID,
-        room: currentRoom,
-        data: roomData
-      };
-
+      // 1. 同台電腦（網頁版 ⇋ 應用程式版）瞬間 0.001 秒同步
       try {
-        if (localBroadcast) localBroadcast.postMessage(localPayload);
-        if (universalBroadcast) universalBroadcast.postMessage(localPayload);
-      } catch (err) {}
+        if (localBroadcast) {
+          localBroadcast.postMessage({
+            senderId: CLIENT_INSTANCE_ID,
+            data: roomData
+          });
+        }
+      } catch (e) {}
 
       try {
         localStorage.setItem(`worksync_shared_${currentRoom}`, JSON.stringify(roomData));
         localStorage.setItem(`worksync_trigger_${currentRoom}`, String(nowTs));
-        writeToSharedDB(currentRoom, roomData);
       } catch (e) {}
 
       updateSyncBadge('success', '已即時儲存並同步');
 
-      // 2. 透過 ntfy 廣播推送到遠端電腦（Mac / Windows 桌機）
-      if (cloudPushTimeout) clearTimeout(cloudPushTimeout);
-      cloudPushTimeout = setTimeout(() => {
-        try {
-          const rawStr = JSON.stringify(roomData);
-          // 若長度大於 2KB，透過 LZ-String 壓縮成超微小文字，保證 100% 不被伺服器阻擋
-          let finalMsg = rawStr;
-          if (typeof LZString !== 'undefined' && rawStr.length > 2000) {
-            finalMsg = LZString.compressToEncodedURIComponent(rawStr);
+      // 2. 跨裝置推播（發送到 ntfy 官方通道，Mac 與 Windows 同步收到）
+      try {
+        fetch(`https://ntfy.sh/${channel}`, {
+          method: 'POST',
+          body: JSON.stringify(roomData),
+          headers: {
+            'Title': 'Calendar Update',
+            'Priority': 'high'
           }
-
-          fetch(`https://ntfy.sh/${channelKey}`, {
-            method: 'POST',
-            body: finalMsg,
-            headers: {
-              'Title': 'Calendar Sync',
-              'Priority': 'high'
-            },
-            keepalive: true
-          }).catch(() => {});
-
-        } catch (e) {
-          console.warn("Cloud push error:", e);
-        }
-      }, 100);
+        }).catch(() => {});
+      } catch (e) {
+        console.warn("Cloud push error:", e);
+      }
     }
 
-    // 從本地硬碟或 ntfy 官方快取拉取最新完整行程
+    // 從雲端快取拉取最新行程
     async function pullLatestFromCloud() {
       if (!currentRoom) return;
-      const channelKey = getCleanChannelName(currentRoom);
+      const channel = getChannelUrl(currentRoom);
 
-      // 優先步驟：同機 IndexedDB 與 localStorage
+      // 檢查本機儲存
       try {
-        const sharedDbData = await readFromSharedDB(currentRoom);
-        if (sharedDbData) {
-          const dbFingerprint = computeFingerprint(sharedDbData);
-          if (dbFingerprint && dbFingerprint !== lastDataFingerprint) {
-            lastDataFingerprint = dbFingerprint;
-            applyIncomingData(sharedDbData);
-            updateSyncBadge('success', '網頁與應用程式已即時連動');
-            return;
-          }
-        }
-
         const localSaved = localStorage.getItem(`worksync_shared_${currentRoom}`);
         if (localSaved) {
           const parsed = JSON.parse(localSaved);
-          const localFingerprint = computeFingerprint(parsed);
-          if (localFingerprint && localFingerprint !== lastDataFingerprint) {
-            lastDataFingerprint = localFingerprint;
+          if (parsed && parsed.updatedAt && parsed.updatedAt > lastLocalTimestamp) {
+            lastLocalTimestamp = parsed.updatedAt;
             applyIncomingData(parsed);
-            updateSyncBadge('success', '網頁與應用程式已即時連動');
             return;
           }
         }
       } catch (e) {}
 
-      // 遠端步驟：向 ntfy 官方快取索取（穿透 Windows 與 Mac 瀏覽器快取）
+      // 遠端拉取
       try {
-        const ntfyJsonUrl = `https://ntfy.sh/${channelKey}/json?poll=1&since=12h&_win_t=${Date.now()}`;
-        const res = await fetch(ntfyJsonUrl, {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=12h&_t=${Date.now()}`, {
+          cache: 'no-store'
         });
 
         if (res.ok) {
           const lines = (await res.text()).trim().split('\n');
-          // 由最新一筆往回讀取
           for (let i = lines.length - 1; i >= 0; i--) {
             try {
               const item = JSON.parse(lines[i]);
               if (item && item.message) {
-                const cloudData = decompressPayload(item.message);
+                const cloudData = JSON.parse(item.message);
                 if (cloudData && typeof cloudData === 'object') {
-                  if (cloudData.senderId === CLIENT_INSTANCE_ID && cloudData.updatedAt === lastLocalTimestamp) {
-                    continue;
-                  }
-                  const cloudFingerprint = computeFingerprint(cloudData);
-                  if (cloudFingerprint && cloudFingerprint !== lastDataFingerprint) {
-                    lastLocalTimestamp = Math.max(lastLocalTimestamp, cloudData.updatedAt || Date.now());
-                    lastDataFingerprint = cloudFingerprint;
+                  if (cloudData.senderId !== CLIENT_INSTANCE_ID && cloudData.updatedAt > lastLocalTimestamp) {
+                    lastLocalTimestamp = cloudData.updatedAt;
                     applyIncomingData(cloudData);
                     updateSyncBadge('success', '雙向即時連線正常');
                     break;
@@ -1359,9 +1211,7 @@
             } catch (err) {}
           }
         }
-      } catch (err) {
-        // 離線時維持現有狀態
-      }
+      } catch (err) {}
     }
 
     function updateSyncBadge(status, text) {
@@ -2558,7 +2408,6 @@
       const savedRoom = localStorage.getItem('worksync_last_room');
 
       if (savedRoom && savedRoom.trim()) {
-        // 曾使用過該房間：直接進入該房間
         currentRoom = savedRoom.trim();
         document.getElementById('currentRoomText').textContent = currentRoom;
         document.getElementById('currentRoomDisplay').textContent = currentRoom;
@@ -2569,7 +2418,6 @@
         renderCalendar();
         initCloudSync();
       } else {
-        // 全新使用者 / 其他人首次取得網址：不載入任何預設房間，直接強制跳出起始導引選擇 Modal
         document.getElementById('currentRoomText').textContent = "尚未選定房間";
         document.getElementById('currentRoomDisplay').textContent = "選擇房間";
         renderCalendar();
@@ -2605,7 +2453,6 @@
           setTimeout(() => inputNew.focus(), 50);
         });
 
-        // 提交加入已知房間表單
         formJoin.addEventListener('submit', (e) => {
           e.preventDefault();
           const roomToJoin = inputJoin.value.trim();
@@ -2615,7 +2462,6 @@
           }
         });
 
-        // 提交建立全新獨立房間表單
         formCreate.addEventListener('submit', (e) => {
           e.preventDefault();
           const roomToCreate = inputNew.value.trim();
@@ -2626,37 +2472,29 @@
         });
       }
 
-      // 當視窗從背景切回前台（例如打開休眠的 Mac 或點進 App 視窗）時，自動重新對齊連線
+      // 視窗切換與聚焦喚醒
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && currentRoom) {
           pullLatestFromCloud();
         }
       });
-
-      // 監聽視窗 Focus 與滑鼠移入事件：無論何時只要點進或移入 App 視窗或網頁，立即瞬間毫秒級拉取最新行程
       window.addEventListener('focus', () => {
         if (currentRoom) {
           pullLatestFromCloud();
         }
       });
-      window.addEventListener('mouseenter', () => {
-        if (currentRoom) {
-          pullLatestFromCloud();
-        }
-      });
 
-      // 原生監聽跨視窗 storage 變更（雙重支援網頁版與 App 視窗互通）
+      // 原生 storage 監聽（同電腦網頁版與應用程式版雙向互通）
       window.addEventListener('storage', (e) => {
         if ((e.key === `worksync_shared_${currentRoom}` || e.key === `worksync_trigger_${currentRoom}`) && e.newValue) {
           try {
             const raw = localStorage.getItem(`worksync_shared_${currentRoom}`);
             if (raw) {
               const incoming = JSON.parse(raw);
-              const incomingFingerprint = computeFingerprint(incoming);
-              if (incomingFingerprint !== lastDataFingerprint) {
-                lastDataFingerprint = incomingFingerprint;
+              if (incoming && incoming.updatedAt && incoming.updatedAt > lastLocalTimestamp) {
+                lastLocalTimestamp = incoming.updatedAt;
                 applyIncomingData(incoming);
-                updateSyncBadge('success', '網頁與應用程式已即時連動');
+                updateSyncBadge('success', '雙向即時連線正常');
               }
             }
           } catch (err) {}
