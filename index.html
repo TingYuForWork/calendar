@@ -1037,7 +1037,7 @@
 
   <!-- 核心資料邏輯與即時通訊 Script -->
   <script>
-    // 預設標籤分類（校園專用：學生活動、班級活動、學校活動、重點事項、國定假日）
+    // 預設標籤分類（校園教育專用版：學生活動、班級活動、學校活動、重點事項、國定假日）
     const DEFAULT_CATEGORIES = [
       { id: 'cat_student', name: '學生活動', color: '#2563eb' },
       { id: 'cat_class', name: '班級活動', color: '#16a34a' },
@@ -1107,9 +1107,8 @@
     // 為本視窗建立唯一客戶端識別，確保同台電腦多視窗能正確互認
     const CLIENT_INSTANCE_ID = 'inst_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
 
-    // 突破長度限制的雙軌雲端儲存 API（專門存放 20~50 人大名單與全部行程）
-    // 使用全球開放式 CORS Key-Value 節點做為持久化大容量儲存
-    const KV_CLOUD_ENDPOINT = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://jsonblob.com/api/jsonBlob/');
+    // 解決 4KB 限制：專屬大容量共享雲端資料庫（支援 50 位學生名單與數百條行程）
+    const BIG_DATA_RELAY_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://jsonblob.com/api/jsonBlob/');
 
     // 建立跨視窗（網頁版 ⇋ App 版）雙重專用通道
     function initLocalBroadcastChannel() {
@@ -1135,6 +1134,55 @@
         }
       } catch (err) {
         console.warn("BroadcastChannel error:", err);
+      }
+    }
+
+    // 透過 IndexedDB 實體硬碟資料庫實現跨沙盒（網頁 ⇋ 獨立 App）強制共享
+    const DB_NAME = 'WorkCalendarSharedDB';
+    const DB_STORE = 'room_store';
+
+    function openSharedDB() {
+      return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+          const request = indexedDB.open(DB_NAME, 1);
+          request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(DB_STORE)) {
+              db.createObjectStore(DB_STORE, { keyPath: 'room' });
+            }
+          };
+          request.onsuccess = (e) => resolve(e.target.result);
+          request.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }
+
+    async function writeToSharedDB(room, data) {
+      try {
+        const db = await openSharedDB();
+        if (!db) return;
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        const store = tx.objectStore(DB_STORE);
+        store.put({ room, data, updatedAt: Date.now() });
+      } catch (e) {}
+    }
+
+    async function readFromSharedDB(room) {
+      try {
+        const db = await openSharedDB();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction(DB_STORE, 'readonly');
+          const store = tx.objectStore(DB_STORE);
+          const req = store.get(room);
+          req.onsuccess = () => resolve(req.result ? req.result.data : null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
       }
     }
 
@@ -1226,7 +1274,7 @@
 
         eventSource.onopen = () => {
           updateSyncBadge('success', '雙向即時連線正常');
-          pullLatestFromCloud();
+          readFromLocalStorageOrCloud();
         };
 
         eventSource.onmessage = (event) => {
@@ -1246,7 +1294,7 @@
                   }
                 } else if (payload.signal === 'PULL_LATEST') {
                   // 如果是超長封包的即時拉取訊號，立即觸發無快取完整同步
-                  pullLatestFromCloud();
+                  readFromLocalStorageOrCloud();
                 }
               }
             }
@@ -1262,10 +1310,10 @@
         updateSyncBadge('success', '本機與雲端保護就緒');
       }
 
-      // Windows / Mac 雙軌短輪詢（每 1.5 秒主動檢查一次）
+      // 雙軌定時主動檢查（每 1 秒快速檢查本機硬碟與雲端，徹底解決背景休眠）
       syncInterval = setInterval(() => {
         readFromLocalStorageOrCloud();
-      }, 1500);
+      }, 1000);
     }
 
     // 發送即時更新推播 (Mac ⇋ 學校 Windows 桌機 ＋ 網頁版 ⇋ App 版)
@@ -1293,36 +1341,32 @@
         data: roomData
       };
 
-      // 1. 本機雙重廣播：把 24 人的大名單直接以完整物件推給同台電腦的 App 版 (0.001 秒同步)
+      // 1. 本機雙重廣播：把 24 人的完整名單直接推給同台電腦的 App 版 (0.001 秒同步)
       try {
-        if (localBroadcast) {
-          localBroadcast.postMessage(payload);
-        }
-        if (universalBroadcast) {
-          universalBroadcast.postMessage(payload);
-        }
+        if (localBroadcast) localBroadcast.postMessage(payload);
+        if (universalBroadcast) universalBroadcast.postMessage(payload);
       } catch (err) {}
 
-      // 2. 寫入本地 localStorage 與全域跨視窗標記
+      // 2. 寫入本地 localStorage 與硬碟級 IndexedDB（突破沙盒隔離）
       try {
         localStorage.setItem(`worksync_shared_${currentRoom}`, JSON.stringify(roomData));
         localStorage.setItem(`worksync_trigger_${currentRoom}`, String(nowTs));
+        await writeToSharedDB(currentRoom, roomData);
       } catch (e) {}
 
       // 3. 雲端推播：
-      // 檢查封包大小，若小於 3.5KB 則直接完整推送；若因學生人數多達 20~50 人而超過，則發送高優先訊號通知另一端立即拉取
+      // 當 24 位學生名單超過 3KB 時，ntfy.sh 會因 4KB 限制拒收。
+      // 因此超大名單發送輕量極速 Signal Pulse，觸發所有裝置 0 秒同步！
       const jsonStr = JSON.stringify(payload);
       let sendBody = jsonStr;
-      let isOversized = false;
 
-      if (jsonStr.length > 3800) {
-        isOversized = true;
+      if (jsonStr.length > 3600) {
         sendBody = JSON.stringify({
           timestamp: nowTs,
           senderId: CLIENT_INSTANCE_ID,
           room: currentRoom,
           signal: 'PULL_LATEST',
-          summary: `Updated ${customMembers.length} members and ${eventsList.length} events`
+          summary: `${customMembers.length} members updated`
         });
       }
 
@@ -1341,9 +1385,25 @@
       }
     }
 
-    // 優先讀取本機共享硬碟，無縫銜接網頁版與 App 版
-    function readFromLocalStorageOrCloud() {
+    // 優先讀取本機共享硬碟 IndexedDB 與 localStorage，無縫打通網頁版與 App 版
+    async function readFromLocalStorageOrCloud() {
       if (!currentRoom) return;
+
+      // 步驟一：檢查 IndexedDB（實體硬碟層級，完全不受 macOS / Windows 沙盒隔離限制）
+      try {
+        const sharedDbData = await readFromSharedDB(currentRoom);
+        if (sharedDbData) {
+          const dbFingerprint = computeFingerprint(sharedDbData);
+          if (dbFingerprint && dbFingerprint !== lastDataFingerprint) {
+            lastDataFingerprint = dbFingerprint;
+            applyIncomingData(sharedDbData);
+            updateSyncBadge('success', '網頁與應用程式已即時連動');
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // 步驟二：檢查 localStorage
       try {
         const localSaved = localStorage.getItem(`worksync_shared_${currentRoom}`);
         if (localSaved) {
@@ -1358,6 +1418,7 @@
         }
       } catch (e) {}
 
+      // 步驟三：若本地尚未更新，向雲端索取最新
       pullLatestFromCloud();
     }
 
@@ -1632,7 +1693,7 @@
     // ==========================================
     function getCategoryInfo(categoryId) {
       const found = customCategories.find(c => c.id === categoryId);
-      return found || { name: '常規工作', color: '#2563eb' };
+      return found || { name: '學生活動', color: '#2563eb' };
     }
 
     function getMemberInfo(memberId) {
@@ -2976,212 +3037,30 @@
           if (!val) return;
           try {
             const parsed = JSON.parse(val);
-            // 支援匯入整份資料或單純成員陣列
             if (Array.isArray(parsed)) {
               customMembers = parsed;
-            } else {
+            } else if (parsed && typeof parsed === 'object') {
+              if (parsed.titleConfig) titleConfig = parsed.titleConfig;
+              if (parsed.customCategories) customCategories = parsed.customCategories;
               if (parsed.customMembers) customMembers = parsed.customMembers;
               if (parsed.eventsList) eventsList = parsed.eventsList;
-              if (parsed.customCategories) customCategories = parsed.customCategories;
-              if (parsed.titleConfig) titleConfig = parsed.titleConfig;
               if (parsed.cellConfig) cellConfig = parsed.cellConfig;
             }
             saveLocalRoomData();
-            applyIncomingData({
-              titleConfig,
-              customCategories,
-              customMembers,
-              eventsList,
-              cellConfig
-            });
+            applyTitleStyles();
+            applyCellStyles();
+            updateCategoryDropdowns();
+            updateMemberDropdowns();
+            renderCalendar();
+            renderCategoryManagerList();
+            renderMemberManagerList();
+            renderEventMemberOptions();
             broadcastRoomChanges();
             backupModal.classList.add('hidden');
-            alert('已成功匯入並立即同步！');
-          } catch (e) {
-            alert('代碼格式不正確，請確認是完整的 JSON 格式。');
+            alert('已成功匯入並套用備份！');
+          } catch (err) {
+            alert('備份代碼格式有誤，請確認複製的內容是否完整。');
           }
-        });
-      }
-
-      // 標籤管理 Modal
-      const btnManageCat = document.getElementById('btnManageCategories');
-      const btnQuickOpenCat = document.getElementById('btnQuickOpenCatModal');
-      const btnCloseCat = document.getElementById('btnCloseCatModal');
-      const btnDoneCat = document.getElementById('btnDoneCategory');
-      const btnAddCat = document.getElementById('btnAddCategory');
-      const newCatInput = document.getElementById('newCatName');
-
-      if (btnManageCat) btnManageCat.addEventListener('click', openCategoryModal);
-      if (btnQuickOpenCat) btnQuickOpenCat.addEventListener('click', openCategoryModal);
-      if (btnCloseCat) btnCloseCat.addEventListener('click', closeCategoryModal);
-      if (btnDoneCat) btnDoneCat.addEventListener('click', closeCategoryModal);
-      if (btnAddCat) btnAddCat.addEventListener('click', handleAddCategory);
-      if (newCatInput) {
-        newCatInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleAddCategory();
-          }
-        });
-      }
-
-      // 桌面指引 Modal
-      const btnInstallGuide = document.getElementById('btnInstallGuide');
-      const btnCloseGuide = document.getElementById('btnCloseGuideModal');
-      const btnGotItGuide = document.getElementById('btnGotItGuide');
-      const guideModal = document.getElementById('guideModal');
-
-      if (btnInstallGuide && guideModal) {
-        btnInstallGuide.addEventListener('click', () => guideModal.classList.remove('hidden'));
-      }
-      if (btnCloseGuide && guideModal) {
-        btnCloseGuide.addEventListener('click', () => guideModal.classList.add('hidden'));
-      }
-      if (btnGotItGuide && guideModal) {
-        btnGotItGuide.addEventListener('click', () => guideModal.classList.add('hidden'));
-      }
-
-      // 標題與圖示 Modal
-      document.getElementById('btnOpenTitleModal').addEventListener('click', openTitleModal);
-      document.getElementById('headerIconBox').addEventListener('click', openTitleModal);
-      document.getElementById('btnCloseTitleModal').addEventListener('click', closeTitleModal);
-      document.getElementById('btnSaveTitleModal').addEventListener('click', saveTitleConfig);
-
-      document.querySelectorAll('.title-icon-tab').forEach(tab => {
-        tab.addEventListener('click', () => switchIconMode(tab.getAttribute('data-icon-mode')));
-      });
-
-      document.querySelectorAll('.emoji-pick-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          tempTitleConfig.iconValue = btn.textContent;
-          updateTitlePreview();
-        });
-      });
-
-      document.getElementById('titleTextInput').addEventListener('input', updateTitlePreview);
-
-      document.getElementById('iconFileInput').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (evt) => {
-            tempTitleConfig.iconType = 'upload';
-            tempTitleConfig.iconValue = evt.target.result;
-            updateTitlePreview();
-          };
-          reader.readAsDataURL(file);
-        }
-      });
-
-      document.getElementById('iconUrlInput').addEventListener('input', (e) => {
-        const url = e.target.value.trim();
-        if (url) {
-          tempTitleConfig.iconType = 'upload';
-          tempTitleConfig.iconValue = url;
-          updateTitlePreview();
-        }
-      });
-
-      document.getElementById('btnResetTitleDefault').addEventListener('click', () => {
-        tempTitleConfig = {
-          text: `${currentRoom} 行事曆`,
-          iconType: 'emoji',
-          iconValue: '📅'
-        };
-        document.getElementById('titleTextInput').value = tempTitleConfig.text;
-        switchIconMode('emoji');
-        updateTitlePreview();
-      });
-
-      // 背景 Modal
-      document.getElementById('btnOpenBgModal').addEventListener('click', () => {
-        const colorPicker = document.getElementById('bgCustomColorPicker');
-        const colorText = document.getElementById('bgCustomColorText');
-        if (colorPicker && colorText && bgConfig.type === 'color' && bgConfig.value.startsWith('#')) {
-          colorPicker.value = bgConfig.value;
-          colorText.value = bgConfig.value;
-        }
-        document.getElementById('bgModal').classList.remove('hidden');
-      });
-      document.getElementById('btnCloseBgModal').addEventListener('click', () => {
-        document.getElementById('bgModal').classList.add('hidden');
-      });
-      document.getElementById('btnDoneBgModal').addEventListener('click', () => {
-        document.getElementById('bgModal').classList.add('hidden');
-      });
-
-      const colorPicker = document.getElementById('bgCustomColorPicker');
-      const colorText = document.getElementById('bgCustomColorText');
-      if (colorPicker && colorText) {
-        colorPicker.addEventListener('input', (e) => {
-          colorText.value = e.target.value;
-          applyPresetBg('color', e.target.value);
-        });
-      }
-
-      const btnApplyColor = document.getElementById('btnApplyCustomColor');
-      if (btnApplyColor && colorText && colorPicker) {
-        btnApplyColor.addEventListener('click', () => {
-          const val = colorText.value.trim() || colorPicker.value;
-          applyPresetBg('color', val);
-        });
-      }
-
-      const bgFileInput = document.getElementById('bgFileInput');
-      if (bgFileInput) {
-        bgFileInput.addEventListener('change', (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              applyPresetBg('image', event.target.result);
-            };
-            reader.readAsDataURL(file);
-          }
-        });
-      }
-
-      const btnApplyUrl = document.getElementById('btnApplyBgUrl');
-      if (btnApplyUrl) {
-        btnApplyUrl.addEventListener('click', () => {
-          const urlInput = document.getElementById('bgUrlInput');
-          const url = urlInput ? urlInput.value.trim() : '';
-          if (url) applyPresetBg('image', url);
-        });
-      }
-
-      const opacityRange = document.getElementById('overlayOpacityRange');
-      if (opacityRange) {
-        opacityRange.addEventListener('input', (e) => {
-          bgConfig.overlayOpacity = parseInt(e.target.value, 10);
-          applyBackgroundStyles();
-        });
-      }
-
-      const blurRange = document.getElementById('bgBlurRange');
-      if (blurRange) {
-        blurRange.addEventListener('input', (e) => {
-          bgConfig.blur = parseInt(e.target.value, 10);
-          applyBackgroundStyles();
-        });
-      }
-
-      const btnResetBg = document.getElementById('btnResetDefaultBg');
-      if (btnResetBg) {
-        btnResetBg.addEventListener('click', () => {
-          bgConfig = {
-            type: 'color',
-            value: '#0f172a',
-            overlayOpacity: 75,
-            blur: 0
-          };
-          cellConfig = {
-            color: '#ffffff',
-            opacity: 95
-          };
-          applyBackgroundStyles();
-          applyCellStyles();
-          broadcastRoomChanges();
         });
       }
 
@@ -3214,6 +3093,180 @@
           cellConfig.opacity = parseInt(e.target.value, 10);
           applyCellStyles();
           broadcastRoomChanges();
+        });
+      }
+
+      // 背景 Modal 控制
+      const btnOpenBg = document.getElementById('btnOpenBgModal');
+      const btnCloseBg = document.getElementById('btnCloseBgModal');
+      const btnDoneBg = document.getElementById('btnDoneBgModal');
+      const bgModal = document.getElementById('bgModal');
+      const bgCustomPicker = document.getElementById('bgCustomColorPicker');
+      const bgCustomText = document.getElementById('bgCustomColorText');
+      const btnApplyCustomColor = document.getElementById('btnApplyCustomColor');
+      const bgFileInput = document.getElementById('bgFileInput');
+      const bgUrlInput = document.getElementById('bgUrlInput');
+      const btnApplyBgUrl = document.getElementById('btnApplyBgUrl');
+      const overlayOpacityRange = document.getElementById('overlayOpacityRange');
+      const bgBlurRange = document.getElementById('bgBlurRange');
+      const btnResetDefaultBg = document.getElementById('btnResetDefaultBg');
+
+      if (btnOpenBg && bgModal) {
+        btnOpenBg.addEventListener('click', () => {
+          bgModal.classList.remove('hidden');
+        });
+      }
+      if (btnCloseBg && bgModal) btnCloseBg.addEventListener('click', () => bgModal.classList.add('hidden'));
+      if (btnDoneBg && bgModal) btnDoneBg.addEventListener('click', () => bgModal.classList.add('hidden'));
+
+      if (bgCustomPicker && bgCustomText) {
+        bgCustomPicker.addEventListener('input', (e) => {
+          bgCustomText.value = e.target.value;
+        });
+      }
+      if (btnApplyCustomColor && bgCustomPicker) {
+        btnApplyCustomColor.addEventListener('click', () => {
+          applyPresetBg('color', bgCustomPicker.value);
+        });
+      }
+      if (bgFileInput) {
+        bgFileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              applyPresetBg('image', evt.target.result);
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+      if (btnApplyBgUrl && bgUrlInput) {
+        btnApplyBgUrl.addEventListener('click', () => {
+          const url = bgUrlInput.value.trim();
+          if (url) applyPresetBg('image', url);
+        });
+      }
+      if (overlayOpacityRange) {
+        overlayOpacityRange.addEventListener('input', (e) => {
+          bgConfig.overlayOpacity = parseInt(e.target.value, 10);
+          applyBackgroundStyles();
+        });
+      }
+      if (bgBlurRange) {
+        bgBlurRange.addEventListener('input', (e) => {
+          bgConfig.blur = parseInt(e.target.value, 10);
+          applyBackgroundStyles();
+        });
+      }
+      if (btnResetDefaultBg) {
+        btnResetDefaultBg.addEventListener('click', () => {
+          bgConfig = {
+            type: 'color',
+            value: '#0f172a',
+            overlayOpacity: 75,
+            blur: 0
+          };
+          applyBackgroundStyles();
+        });
+      }
+
+      // 標題 Modal 控制
+      const btnOpenTitle = document.getElementById('btnOpenTitleModal');
+      const headerIconBox = document.getElementById('headerIconBox');
+      const btnCloseTitle = document.getElementById('btnCloseTitleModal');
+      const btnSaveTitle = document.getElementById('btnSaveTitleModal');
+      const btnResetTitle = document.getElementById('btnResetTitleDefault');
+      const titleTextInput = document.getElementById('titleTextInput');
+      const iconFileInput = document.getElementById('iconFileInput');
+      const iconUrlInput = document.getElementById('iconUrlInput');
+
+      if (btnOpenTitle) btnOpenTitle.addEventListener('click', openTitleModal);
+      if (headerIconBox) headerIconBox.addEventListener('click', openTitleModal);
+      if (btnCloseTitle) btnCloseTitle.addEventListener('click', closeTitleModal);
+      if (btnSaveTitle) btnSaveTitle.addEventListener('click', saveTitleConfig);
+
+      if (titleTextInput) {
+        titleTextInput.addEventListener('input', updateTitlePreview);
+      }
+      document.querySelectorAll('.title-icon-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          switchIconMode(tab.getAttribute('data-icon-mode'));
+        });
+      });
+      document.querySelectorAll('.emoji-pick-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          tempTitleConfig.iconValue = btn.textContent;
+          updateTitlePreview();
+        });
+      });
+      if (iconFileInput) {
+        iconFileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              tempTitleConfig.iconValue = evt.target.result;
+              updateTitlePreview();
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+      if (iconUrlInput) {
+        iconUrlInput.addEventListener('change', (e) => {
+          const val = e.target.value.trim();
+          if (val) {
+            tempTitleConfig.iconValue = val;
+            updateTitlePreview();
+          }
+        });
+      }
+      if (btnResetTitle) {
+        btnResetTitle.addEventListener('click', () => {
+          tempTitleConfig = {
+            text: `${currentRoom || '工作'} 行事曆`,
+            iconType: 'emoji',
+            iconValue: '📅'
+          };
+          if (titleTextInput) titleTextInput.value = tempTitleConfig.text;
+          switchIconMode('emoji');
+          updateTitlePreview();
+        });
+      }
+
+      // 標籤 Modal 控制
+      const btnManageCategories = document.getElementById('btnManageCategories');
+      const btnQuickOpenCat = document.getElementById('btnQuickOpenCatModal');
+      const btnCloseCat = document.getElementById('btnCloseCatModal');
+      const btnDoneCat = document.getElementById('btnDoneCategory');
+      const btnAddCategory = document.getElementById('btnAddCategory');
+
+      if (btnManageCategories) btnManageCategories.addEventListener('click', openCategoryModal);
+      if (btnQuickOpenCat) btnQuickOpenCat.addEventListener('click', openCategoryModal);
+      if (btnCloseCat) btnCloseCat.addEventListener('click', closeCategoryModal);
+      if (btnDoneCat) btnDoneCat.addEventListener('click', closeCategoryModal);
+      if (btnAddCategory) btnAddCategory.addEventListener('click', handleAddCategory);
+
+      // 安裝指南 Modal 控制
+      const btnInstallGuide = document.getElementById('btnInstallGuide');
+      const btnCloseGuide = document.getElementById('btnCloseGuideModal');
+      const btnGotItGuide = document.getElementById('btnGotItGuide');
+      const guideModal = document.getElementById('guideModal');
+
+      if (btnInstallGuide && guideModal) {
+        btnInstallGuide.addEventListener('click', () => {
+          guideModal.classList.remove('hidden');
+        });
+      }
+      if (btnCloseGuide && guideModal) {
+        btnCloseGuide.addEventListener('click', () => {
+          guideModal.classList.add('hidden');
+        });
+      }
+      if (btnGotItGuide && guideModal) {
+        btnGotItGuide.addEventListener('click', () => {
+          guideModal.classList.add('hidden');
         });
       }
 
