@@ -2313,13 +2313,23 @@
       loadAuthRegistry();
       if (roomAuthRegistry[clean]) return true;
 
-      // 向雲端檢查該頻道是否已有資料（設置 1.5 秒超時，防止網路卡住導致按鈕沒反應）
+      // 檢查本機儲存與歷史紀錄
+      if (roomHistory.includes(clean)) return true;
+      try {
+        if (localStorage.getItem(`worksync_shared_${clean}`)) return true;
+      } catch(e) {}
+
+      // 向雲端快速探測該頻道是否已有資料（設置 800ms 快速超時，決不阻礙建立流程）
       try {
         const channel = getChannelUrl(clean);
-        const fetchPromise = fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 800);
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { 
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         
-        const res = await Promise.race([fetchPromise, timeoutPromise]);
         if (res && res.ok) {
           const text = (await res.text()).trim();
           if (text) {
@@ -2361,10 +2371,14 @@
       // 若本機沒有，向雲端查詢該房間的創始人密碼雜湊
       try {
         const channel = getChannelUrl(clean);
-        const fetchPromise = fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { cache: 'no-store' });
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch(`https://ntfy.sh/${channel}/json?poll=1&since=7d&_t=${Date.now()}`, { 
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         
-        const res = await Promise.race([fetchPromise, timeoutPromise]);
         if (res && res.ok) {
           const text = (await res.text()).trim();
           if (text) {
@@ -2404,9 +2418,13 @@
       if (!cleanRoom) return;
 
       currentRoom = cleanRoom;
-      document.getElementById('currentRoomText').textContent = currentRoom;
-      document.getElementById('currentRoomDisplay').textContent = currentRoom;
-      localStorage.setItem('worksync_last_room', currentRoom);
+      const roomTextEl = document.getElementById('currentRoomText');
+      const roomDispEl = document.getElementById('currentRoomDisplay');
+      if (roomTextEl) roomTextEl.textContent = currentRoom;
+      if (roomDispEl) roomDispEl.textContent = currentRoom;
+      try {
+        localStorage.setItem('worksync_last_room', currentRoom);
+      } catch(e) {}
 
       // 加入歷史紀錄
       if (!roomHistory.includes(currentRoom)) {
@@ -2589,8 +2607,8 @@
             modal.classList.add('hidden');
             switchRoom(roomToCreate, true);
           } catch(err) {
-            console.error("Create room error:", err);
-            // 容錯直接建立
+            console.error("Welcome create room error:", err);
+            // 發生任何異常時保障建立成功
             roomAuthRegistry[roomToCreate] = hashPassword(pwd);
             saveAuthRegistry();
             modal.classList.add('hidden');
@@ -2725,66 +2743,72 @@
       const newRoomPasswordInput = document.getElementById('newRoomPasswordInput');
       const createRoomErrorMsg = document.getElementById('createRoomErrorMsg');
 
-      btnOpenCreateRoom.addEventListener('click', () => {
-        newRoomNameInput.value = '';
-        if (newRoomPasswordInput) newRoomPasswordInput.value = '';
-        if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
-        createRoomModal.classList.remove('hidden');
-        setTimeout(() => newRoomNameInput.focus(), 50);
-      });
+      if (btnOpenCreateRoom) {
+        btnOpenCreateRoom.addEventListener('click', () => {
+          if (newRoomNameInput) newRoomNameInput.value = '';
+          if (newRoomPasswordInput) newRoomPasswordInput.value = '';
+          if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
+          if (createRoomModal) createRoomModal.classList.remove('hidden');
+          setTimeout(() => { if (newRoomNameInput) newRoomNameInput.focus(); }, 50);
+        });
+      }
 
-      const closeCreateModal = () => createRoomModal.classList.add('hidden');
-      btnCloseCreateRoom.addEventListener('click', closeCreateModal);
-      btnCancelCreateRoom.addEventListener('click', closeCreateModal);
+      const closeCreateModal = () => {
+        if (createRoomModal) createRoomModal.classList.add('hidden');
+      };
+      if (btnCloseCreateRoom) btnCloseCreateRoom.addEventListener('click', closeCreateModal);
+      if (btnCancelCreateRoom) btnCancelCreateRoom.addEventListener('click', closeCreateModal);
 
-      createRoomForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const targetRoom = newRoomNameInput.value.trim();
-        const pwd = newRoomPasswordInput.value.trim();
-        if (!targetRoom || !pwd) return;
+      if (createRoomForm) {
+        createRoomForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const targetRoom = newRoomNameInput ? newRoomNameInput.value.trim() : '';
+          const pwd = newRoomPasswordInput ? newRoomPasswordInput.value.trim() : '';
+          if (!targetRoom || !pwd) return;
 
-        const submitBtn = document.getElementById('btnSubmitCreateRoom');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> 建立中...';
-        }
+          const submitBtn = document.getElementById('btnSubmitCreateRoom');
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> 建立中...';
+          }
 
-        try {
-          // 檢查名稱是否已存在（設有超時保護防卡住）
-          const exists = await checkRoomExists(targetRoom);
-          if (exists) {
-            if (createRoomErrorMsg) {
-              createRoomErrorMsg.textContent = '⚠️ 已有此房間！請更換名稱，或直接透過「進入房間」輸入密碼加入。';
-              createRoomErrorMsg.classList.remove('hidden');
+          try {
+            // 檢查名稱是否已存在（設有 AbortController 超時保護，避免阻斷）
+            const exists = await checkRoomExists(targetRoom);
+            if (exists) {
+              if (createRoomErrorMsg) {
+                createRoomErrorMsg.textContent = '⚠️ 已有此房間！請更換名稱，或直接透過「進入房間」輸入密碼加入。';
+                createRoomErrorMsg.classList.remove('hidden');
+              }
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '設定密碼並建立';
+              }
+              return;
             }
+
+            if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
+            // 註冊創始人密碼
+            roomAuthRegistry[targetRoom] = hashPassword(pwd);
+            saveAuthRegistry();
+
+            closeCreateModal();
+            switchRoom(targetRoom, true);
+          } catch(err) {
+            console.error("Create room modal error:", err);
+            // 容錯直接建立
+            roomAuthRegistry[targetRoom] = hashPassword(pwd);
+            saveAuthRegistry();
+            closeCreateModal();
+            switchRoom(targetRoom, true);
+          } finally {
             if (submitBtn) {
               submitBtn.disabled = false;
               submitBtn.textContent = '設定密碼並建立';
             }
-            return;
           }
-
-          if (createRoomErrorMsg) createRoomErrorMsg.classList.add('hidden');
-          // 註冊創始人密碼
-          roomAuthRegistry[targetRoom] = hashPassword(pwd);
-          saveAuthRegistry();
-
-          closeCreateModal();
-          switchRoom(targetRoom, true);
-        } catch(err) {
-          console.error("Create room modal error:", err);
-          // 容錯直接建立
-          roomAuthRegistry[targetRoom] = hashPassword(pwd);
-          saveAuthRegistry();
-          closeCreateModal();
-          switchRoom(targetRoom, true);
-        } finally {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '設定密碼並建立';
-          }
-        }
-      });
+        });
+      }
 
       // 手動立即強制同步按鈕
       const btnManual = document.getElementById('btnManualSync');
